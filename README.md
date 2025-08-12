@@ -14,7 +14,7 @@ Braze 대시보드에서 Custom Attributes 입력 시 한글 자동완성을 제
 ## 📥 빠른 설치 (1분 소요)
 
 ### 1️⃣ 다운로드
-**[⬇️ 최신 버전 다운로드 (v1.0.0)](https://github.com/YOUR_USERNAME/braze-autocomplete-extension/releases/latest/download/braze-autocomplete-extension.zip)**
+**[⬇️ 최신 버전 다운로드 (v1.0.0)](https://github.com/wonjunekang-myrealtrip/braze-autocomplete-extension/releases/latest/download/braze-autocomplete-extension.zip)**
 
 ### 2️⃣ 압축 해제
 다운로드한 ZIP 파일을 더블클릭하여 압축 해제
@@ -104,8 +104,8 @@ Braze 대시보드에서 Custom Attributes 사용 시 자동완성이 작동합�
 
 ## 🤝 기여 및 문의
 
-- **버그 제보**: [Issues](https://github.com/YOUR_USERNAME/braze-autocomplete-extension/issues)
-- **기능 제안**: [Discussions](https://github.com/YOUR_USERNAME/braze-autocomplete-extension/discussions)
+- **버그 제보**: [Issues](https://github.com/wonjunekang-myrealtrip/braze-autocomplete-extension/issues)
+- **기능 제안**: [Discussions](https://github.com/wonjunekang-myrealtrip/braze-autocomplete-extension/discussions)
 - **Slack**: #braze-자동완성
 
 ---

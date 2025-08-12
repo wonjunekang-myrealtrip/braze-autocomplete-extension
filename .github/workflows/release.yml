@@ -28,6 +28,7 @@ jobs:
       env:
         GOOGLE_SHEETS_API_KEY: ${{ secrets.GOOGLE_SHEETS_API_KEY }}
         GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
+        GOOGLE_SHEETS_RANGE: ${{ secrets.GOOGLE_SHEETS_RANGE }}
       run: npm run build
     
     - name: Create ZIP file

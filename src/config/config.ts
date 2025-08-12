@@ -1,9 +1,10 @@
 // API Configuration
+// Chrome Extension에서는 빌드 시점에 환경 변수를 주입해야 함
 export const API_CONFIG = {
-  // Google Sheets API
-  GOOGLE_SHEETS_API_KEY: process.env.GOOGLE_SHEETS_API_KEY || 'AIzaSyBUZh6hu264vtDfcVkGA0HO9txuN6fFuyE',
-  GOOGLE_SHEETS_ID: process.env.GOOGLE_SHEETS_ID || '1W5mZhAFws47z3gvOs9Gttm3setCpE_yK4YCAk7FIukE',
-  GOOGLE_SHEETS_RANGE: process.env.GOOGLE_SHEETS_RANGE || 'Custom%20Attributes!A1:K1000',
+  // Google Sheets API - import.meta.env를 통해 Vite 환경 변수 접근
+  GOOGLE_SHEETS_API_KEY: import.meta.env.VITE_GOOGLE_SHEETS_API_KEY || '',
+  GOOGLE_SHEETS_ID: import.meta.env.VITE_GOOGLE_SHEETS_ID || '',
+  GOOGLE_SHEETS_RANGE: import.meta.env.VITE_GOOGLE_SHEETS_RANGE || '',
   
   // MyRealTrip APIs
   MRT_API_BASE: 'https://api3.myrealtrip.com',

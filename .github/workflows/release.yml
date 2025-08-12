@@ -6,15 +6,18 @@ on:
       - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     
     - name: Setup Node.js
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: '18'
     
@@ -31,32 +34,34 @@ jobs:
         cd ..
     
     - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: softprops/action-gh-release@v1
       with:
-        tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
+        tag_name: ${{ github.ref_name }}
+        name: Release ${{ github.ref_name }}
         body: |
           ## 🚀 Braze 자동완성 확장 프로그램
           
-          ### 설치 방법
+          ### ✨ 주요 기능
+          - Custom Attributes 자동완성
+          - 한글명 표시
+          - 멀티 셀렉트 지원
+          - 상품 검색 기능
+          
+          ### 📥 설치 방법
           1. 아래 `braze-autocomplete-extension.zip` 다운로드
           2. 압축 해제
-          3. Chrome 확장 프로그램 페이지에서 "압축 해제된 확장 프로그램 로드"
-          4. 압축 해제한 폴더 선택
+          3. Chrome 확장 프로그램 페이지(`chrome://extensions`)에서 "압축 해제된 확장 프로그램 로드"
+          4. 압축 해제한 `dist` 폴더 선택
           
-          자세한 설치 가이드는 [INSTALL_GUIDE.md](INSTALL_GUIDE.md) 참고
+          ### 📋 지원 타입
+          - 🏙️ CITY (도시)
+          - ✈️ AIRPORT (공항) 
+          - 🌍 COUNTRY (국가)
+          - 🛫 AIRLINE (항공사)
+          - 📝 ENUM (고정값)
+          
+          자세한 사용법은 [README](https://github.com/wonjunekang-myrealtrip/braze-autocomplete-extension#readme) 참고
+        files: |
+          braze-autocomplete-extension.zip
         draft: false
         prerelease: false
-    
-    - name: Upload Release Asset
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./braze-autocomplete-extension.zip
-        asset_name: braze-autocomplete-extension.zip
-        asset_content_type: application/zip

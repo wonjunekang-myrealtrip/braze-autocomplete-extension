@@ -31,3 +31,4 @@ braze-autocomplete-extension.zip
 .env
 .env.local
 .env.production
+.env.*

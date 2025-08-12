@@ -2,10 +2,7 @@ import { AttributeMetadata, ExtensionMessage, CacheData } from '@/shared/types';
 import { mockAttributes } from '@/shared/mockData';
 import { CACHE_KEYS, CACHE_TTL } from '@/shared/constants';
 import { AutocompleteAPIService } from '@/services/autocompleteAPIService';
-
-// Google Sheets API 설정
-const SHEETS_API_URL = 'https://sheets.googleapis.com/v4/spreadsheets/1W5mZhAFws47z3gvOs9Gttm3setCpE_yK4YCAk7FIukE/values/Custom%20Attributes!A1:K1000';
-const API_KEY = 'AIzaSyBUZh6hu264vtDfcVkGA0HO9txuN6fFuyE';
+import { getGoogleSheetsUrl } from '@/config/config';
 
 // Service Worker 환경 확인
 const isServiceWorker = typeof self !== 'undefined' && self instanceof ServiceWorkerGlobalScope;
@@ -33,7 +30,7 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id) {
 // Google Sheets에서 데이터 가져오기
 async function fetchGoogleSheetsData(): Promise<AttributeMetadata[]> {
   try {
-    const response = await fetch(`${SHEETS_API_URL}?key=${API_KEY}`);
+    const response = await fetch(getGoogleSheetsUrl());
     
     if (!response.ok) {
       throw new Error(`Failed to fetch: ${response.status}`);

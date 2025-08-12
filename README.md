@@ -14,7 +14,7 @@ Braze 대시보드에서 Custom Attributes 입력 시 한글 자동완성을 제
 ## 📥 빠른 설치 (1분 소요)
 
 ### 1️⃣ 다운로드
-**[⬇️ 최신 버전 다운로드 (v1.0.0)](https://github.com/wonjunekang-myrealtrip/braze-autocomplete-extension/releases/latest/download/braze-autocomplete-extension.zip)**
+**[⬇️ 최신 버전 다운로드](https://github.com/wonjunekang-myrealtrip/braze-autocomplete-extension/releases/latest/download/braze-autocomplete-extension.zip)**
 
 ### 2️⃣ 압축 해제
 다운로드한 ZIP 파일을 더블클릭하여 압축 해제
@@ -23,7 +23,7 @@ Braze 대시보드에서 Custom Attributes 입력 시 한글 자동완성을 제
 1. Chrome 주소창에 `chrome://extensions` 입력
 2. 우측 상단 **개발자 모드** ON
 3. **압축 해제된 확장 프로그램 로드** 클릭
-4. 압축 해제한 폴더 내 **dist** 폴더 선택
+4. 압축 해제한 폴더 선택
 
 ### ✅ 완료!
 Braze 대시보드에서 Custom Attributes 사용 시 자동완성이 작동합니다.

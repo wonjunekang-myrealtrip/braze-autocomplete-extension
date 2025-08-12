@@ -1,0 +1,54 @@
+{
+  "manifest_version": 3,
+  "name": "Braze 자동완성",
+  "version": "1.0.0",
+  "description": "Braze 화면에서 Custom Attributes 자동완성 기능 제공",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "alarms"
+  ],
+  "host_permissions": [
+    "*://dashboard.braze.com/*",
+    "*://dashboard-01.braze.com/*",
+    "*://dashboard-02.braze.com/*",
+    "*://dashboard-03.braze.com/*",
+    "*://dashboard-04.braze.com/*",
+    "*://dashboard-05.braze.com/*",
+    "*://dashboard.braze.eu/*",
+    "*://dashboard-01.braze.eu/*",
+    "*://dashboard-02.braze.eu/*",
+    "*://api3.myrealtrip.com/*",
+    "*://www.myrealtrip.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://dashboard.braze.com/*",
+        "*://dashboard-01.braze.com/*",
+        "*://dashboard-02.braze.com/*",
+        "*://dashboard-03.braze.com/*",
+        "*://dashboard-04.braze.com/*",
+        "*://dashboard-05.braze.com/*",
+        "*://dashboard.braze.eu/*",
+        "*://dashboard-01.braze.eu/*",
+        "*://dashboard-02.braze.eu/*"
+      ],
+      "js": ["content.js", "productSearch.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Braze 자동완성"
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  }
+}

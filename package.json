@@ -1,0 +1,38 @@
+{
+  "name": "braze-autocomplete-extension",
+  "version": "1.0.0",
+  "description": "Braze 타겟팅 속성 자동완성 Chrome Extension",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run build:main && npm run build:background && npm run build:content && npm run build:product && npm run build:finalize",
+    "build:main": "vite build",
+    "build:background": "vite build --config vite.config.background.ts",
+    "build:content": "vite build --config vite.config.content.ts",
+    "build:product": "vite build --config vite.config.productSearch.ts",
+    "build:finalize": "cp public/manifest.json dist/ && cp -r public/icons dist/ && mv dist/src/popup/index.html dist/popup.html 2>/dev/null || true && rm -rf dist/src 2>/dev/null || true && node -e \"const fs = require('fs'); const html = fs.readFileSync('dist/popup.html', 'utf8'); fs.writeFileSync('dist/popup.html', html.replace(/src=\\\"\\/(.+?)\\\"/g, 'src=\\\"./\\$1\\\"').replace(/href=\\\"\\/(.+?)\\\"/g, 'href=\\\"./\\$1\\\"'));\"",
+    "preview": "vite preview",
+    "type-check": "tsc --noEmit",
+    "release": "./build-release.sh",
+    "package": "npm run build && cd dist && zip -r ../braze-autocomplete-extension.zip . -x '*.DS_Store' && cd .. && echo '✅ braze-autocomplete-extension.zip 생성 완료!'"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.268",
+    "@types/react": "^18.2.43",
+    "@types/react-dom": "^18.2.17",
+    "@typescript-eslint/eslint-plugin": "^6.14.0",
+    "@typescript-eslint/parser": "^6.14.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.16",
+    "eslint": "^8.55.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.5",
+    "postcss": "^8.4.32",
+    "tailwindcss": "^3.3.6",
+    "typescript": "^5.2.2",
+    "vite": "^5.0.8"
+  }
+}

@@ -1008,16 +1008,18 @@ function processTags() {
 
 // 입력 필드 감지
 function detectInputFields() {
-  // Braze의 Custom Attributes 입력 필드 선택자들
+  // Braze의 Custom Attributes 값 입력 필드만 정확히 선택
+  // Comparison 드롭다운이나 다른 선택 필드는 제외
   const selectors = [
+    // Attribute value 입력 필드 (정확한 선택자)
+    '[data-cy="condition-group"] input[type="text"]:not(.bcl-select__input)',
+    // 태그 입력 필드
+    'input.bcl-tag-input',
+    // placeholder가 있는 값 입력 필드
     'input[placeholder*="경기"]',
-    'input[type="text"]:not([readonly])',
-    '.custom_attributes_filter input',
-    '.filter-input-any input',
-    'input.bcl-input',
-    'input.bcl-select__input',
-    'input.bcl-tag-input',  // 태그 입력 필드 추가
-    '[data-cy="condition-group"] input[type="text"]'
+    // 필터 입력 필드 (Attribute value 영역)
+    '.filter-input-any input[type="text"]:not(.bcl-select__input)',
+    '.custom_attributes_filter input[type="text"]:not(.bcl-select__input)'
   ];
   
   selectors.forEach(selector => {
@@ -1026,7 +1028,34 @@ function detectInputFields() {
       if (!(input instanceof HTMLInputElement)) return;
       if (input.hasAttribute('data-braze-autocomplete')) return;
       
-      console.log('입력 필드 발견:', input);
+      // Comparison 선택 영역인지 확인 (제외)
+      const isComparisonField = input.closest('.bcl-select__control') && 
+                                input.closest('[class*="Comparison"]');
+      if (isComparisonField) {
+        console.log('Comparison 필드는 건너뜀:', input);
+        return;
+      }
+      
+      // Select 드롭다운의 검색 입력 필드인지 확인 (제외)
+      const isSelectSearchField = input.classList.contains('bcl-select__input') ||
+                                  input.getAttribute('id')?.includes('react-select');
+      if (isSelectSearchField) {
+        console.log('Select 검색 필드는 건너뜀:', input);
+        return;
+      }
+      
+      // Attribute value 입력 필드인지 최종 확인
+      const isAttributeValueField = input.closest('[data-cy="condition-group"]') ||
+                                    input.closest('.filter-input-any') ||
+                                    input.classList.contains('bcl-tag-input') ||
+                                    input.placeholder?.includes('경기');
+      
+      if (!isAttributeValueField) {
+        console.log('Attribute value 필드가 아님:', input);
+        return;
+      }
+      
+      console.log('Attribute value 입력 필드 발견:', input);
       input.setAttribute('data-braze-autocomplete', 'true');
       
       // 포커스 타이머 변수

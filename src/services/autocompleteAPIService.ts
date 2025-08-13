@@ -226,15 +226,15 @@ export class AutocompleteAPIService {
       return this.categoryCache.data || [];
     } catch (error) {
       console.error('Error fetching categories:', error);
-      // 에러 시 mock 데이터 반환
-      return this.getMockCategoryData('', 0);
+      // 에러 시 빈 배열 반환
+      return [];
     }
   }
 
   /**
    * 카테고리 레벨1 데이터 API
    */
-  private static async fetchCategoryLevel1Data(query: string): Promise<any[]> {
+  private static async fetchCategoryLevel1Data(query: string): Promise<SearchResult[]> {
     try {
       const allCategories = await this.fetchAllCategories();
       
@@ -248,9 +248,9 @@ export class AutocompleteAPIService {
                  cat.code.toLowerCase().includes(lowerQuery);
         })
         .map(cat => ({
-          value: cat.code,
-          label: cat.name,
-          type: 'category_lv1'
+          insertValue: cat.code,
+          display: `${cat.name} (${cat.code})`,
+          additionalInfo: null
         }));
 
       return level1Categories;
@@ -264,7 +264,7 @@ export class AutocompleteAPIService {
   /**
    * 카테고리 레벨2 데이터 API
    */
-  private static async fetchCategoryLevel2Data(query: string): Promise<any[]> {
+  private static async fetchCategoryLevel2Data(query: string): Promise<SearchResult[]> {
     try {
       const allCategories = await this.fetchAllCategories();
       
@@ -278,10 +278,9 @@ export class AutocompleteAPIService {
                  cat.code.toLowerCase().includes(lowerQuery);
         })
         .map(cat => ({
-          value: cat.code,
-          label: cat.name,
-          description: cat.parent || '',
-          type: 'category_lv2'
+          insertValue: cat.code,
+          display: `${cat.name} (${cat.code})`,
+          additionalInfo: cat.parent || null
         }));
 
       return level2Categories;
@@ -295,7 +294,7 @@ export class AutocompleteAPIService {
   /**
    * 카테고리 레벨3 데이터 API
    */
-  private static async fetchCategoryLevel3Data(query: string): Promise<any[]> {
+  private static async fetchCategoryLevel3Data(query: string): Promise<SearchResult[]> {
     try {
       const allCategories = await this.fetchAllCategories();
       
@@ -315,10 +314,9 @@ export class AutocompleteAPIService {
             : cat.parent || '';
           
           return {
-            value: cat.code,
-            label: cat.name,
-            description: parentPath,
-            type: 'category_lv3'
+            insertValue: cat.code,
+            display: `${cat.name} (${cat.code})`,
+            additionalInfo: parentPath || null
           };
         });
 
@@ -476,7 +474,7 @@ export class AutocompleteAPIService {
     );
   }
   
-  private static getMockCategoryData(query: string, level: number): any[] {
+  private static getMockCategoryData(query: string, level: number): SearchResult[] {
     const categories: { [key: number]: any[] } = {
       1: [
         { value: 'TOUR', label: '투어/액티비티' },
@@ -499,10 +497,16 @@ export class AutocompleteAPIService {
     const data = categories[level] || [];
     const lowerQuery = query.toLowerCase();
     
-    return data.filter(item => 
-      item.label.toLowerCase().includes(lowerQuery) ||
-      item.value.toLowerCase().includes(lowerQuery)
-    );
+    return data
+      .filter(item => 
+        item.label.toLowerCase().includes(lowerQuery) ||
+        item.value.toLowerCase().includes(lowerQuery)
+      )
+      .map(item => ({
+        insertValue: item.value,
+        display: `${item.label} (${item.value})`,
+        additionalInfo: item.description || null
+      }));
   }
   
   private static getMockCountryData(query: string): any[] {

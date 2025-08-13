@@ -178,25 +178,82 @@ export class AutocompleteAPIService {
     }
   }
   
+  // 카테고리 데이터 캐시
+  private static categoryCache: {
+    data: any[] | null;
+    timestamp: number;
+    ttl: number;
+  } = {
+    data: null,
+    timestamp: 0,
+    ttl: 3600000 // 1시간 캐시
+  };
+
+  /**
+   * 카테고리 전체 데이터 가져오기 (캐시 적용)
+   */
+  private static async fetchAllCategories(): Promise<any[]> {
+    // 캐시 확인
+    const now = Date.now();
+    if (this.categoryCache.data && 
+        (now - this.categoryCache.timestamp) < this.categoryCache.ttl) {
+      console.log('Using cached category data');
+      return this.categoryCache.data;
+    }
+
+    try {
+      const response = await fetch('https://api3.myrealtrip.com/category/api/v1/standard-categories', {
+        method: 'GET',
+        headers: {
+          'accept': '*/*'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch categories: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      // 캐시 저장
+      this.categoryCache = {
+        data: result.data || [],
+        timestamp: now,
+        ttl: 3600000
+      };
+
+      console.log(`Cached ${this.categoryCache.data.length} categories`);
+      return this.categoryCache.data || [];
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      // 에러 시 mock 데이터 반환
+      return this.getMockCategoryData('', 0);
+    }
+  }
+
   /**
    * 카테고리 레벨1 데이터 API
    */
   private static async fetchCategoryLevel1Data(query: string): Promise<any[]> {
     try {
-      // TODO: 실제 API 엔드포인트로 교체
-      const response = await fetch(`${this.API_BASE_URL}/api/categories/level1?q=${encodeURIComponent(query)}`);
+      const allCategories = await this.fetchAllCategories();
       
-      if (!response.ok) {
-        throw new Error('Category Level 1 API failed');
-      }
-      
-      const data = await response.json();
-      
-      return data.map((item: any) => ({
-        value: item.id || item.code,
-        label: item.name_ko || item.name,
-        type: 'category_lv1'
-      }));
+      // depth가 1인 카테고리만 필터링
+      const level1Categories = allCategories
+        .filter(cat => cat.depth === 1)
+        .filter(cat => {
+          // 검색어로 필터링
+          const lowerQuery = query.toLowerCase();
+          return cat.name.toLowerCase().includes(lowerQuery) ||
+                 cat.code.toLowerCase().includes(lowerQuery);
+        })
+        .map(cat => ({
+          value: cat.code,
+          label: cat.name,
+          type: 'category_lv1'
+        }));
+
+      return level1Categories;
       
     } catch (error) {
       console.error('Error fetching category level 1:', error);
@@ -209,21 +266,25 @@ export class AutocompleteAPIService {
    */
   private static async fetchCategoryLevel2Data(query: string): Promise<any[]> {
     try {
-      // TODO: 실제 API 엔드포인트로 교체
-      const response = await fetch(`${this.API_BASE_URL}/api/categories/level2?q=${encodeURIComponent(query)}`);
+      const allCategories = await this.fetchAllCategories();
       
-      if (!response.ok) {
-        throw new Error('Category Level 2 API failed');
-      }
-      
-      const data = await response.json();
-      
-      return data.map((item: any) => ({
-        value: item.id || item.code,
-        label: item.name_ko || item.name,
-        description: item.parent_name || '',
-        type: 'category_lv2'
-      }));
+      // depth가 2인 카테고리만 필터링
+      const level2Categories = allCategories
+        .filter(cat => cat.depth === 2)
+        .filter(cat => {
+          // 검색어로 필터링
+          const lowerQuery = query.toLowerCase();
+          return cat.name.toLowerCase().includes(lowerQuery) ||
+                 cat.code.toLowerCase().includes(lowerQuery);
+        })
+        .map(cat => ({
+          value: cat.code,
+          label: cat.name,
+          description: cat.parent || '',
+          type: 'category_lv2'
+        }));
+
+      return level2Categories;
       
     } catch (error) {
       console.error('Error fetching category level 2:', error);
@@ -236,21 +297,32 @@ export class AutocompleteAPIService {
    */
   private static async fetchCategoryLevel3Data(query: string): Promise<any[]> {
     try {
-      // TODO: 실제 API 엔드포인트로 교체
-      const response = await fetch(`${this.API_BASE_URL}/api/categories/level3?q=${encodeURIComponent(query)}`);
+      const allCategories = await this.fetchAllCategories();
       
-      if (!response.ok) {
-        throw new Error('Category Level 3 API failed');
-      }
-      
-      const data = await response.json();
-      
-      return data.map((item: any) => ({
-        value: item.id || item.code,
-        label: item.name_ko || item.name,
-        description: `${item.parent_lv1 || ''} > ${item.parent_lv2 || ''}`,
-        type: 'category_lv3'
-      }));
+      // depth가 3인 카테고리만 필터링
+      const level3Categories = allCategories
+        .filter(cat => cat.depth === 3)
+        .filter(cat => {
+          // 검색어로 필터링
+          const lowerQuery = query.toLowerCase();
+          return cat.name.toLowerCase().includes(lowerQuery) ||
+                 cat.code.toLowerCase().includes(lowerQuery);
+        })
+        .map(cat => {
+          // paths 배열에서 부모 카테고리 이름 추출
+          const parentPath = cat.paths && cat.paths.length > 2 
+            ? cat.paths.slice(1, -1).join(' > ')
+            : cat.parent || '';
+          
+          return {
+            value: cat.code,
+            label: cat.name,
+            description: parentPath,
+            type: 'category_lv3'
+          };
+        });
+
+      return level3Categories;
       
     } catch (error) {
       console.error('Error fetching category level 3:', error);

@@ -176,6 +176,11 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage)
         handleFetchAirlineData(message.payload, sendResponse);
         return true;
         
+      case 'FETCH_CATEGORY_DATA':
+        // CATEGORY 타입 데이터 가져오기
+        handleFetchCategoryData(message.payload, sendResponse);
+        return true;
+        
       case 'SYNC_DATA':
         handleSyncData(sendResponse);
         return true;
@@ -341,6 +346,47 @@ async function handleFetchAirlineData(
     sendResponse({ 
       success: false, 
       error: 'AIRLINE 데이터 조회 중 오류가 발생했습니다.' 
+    });
+  }
+}
+
+// 카테고리 데이터 처리
+async function handleFetchCategoryData(
+  payload: { query: string; level: number },
+  sendResponse: (response: any) => void
+) {
+  try {
+    console.log('Fetching category data:', payload);
+    
+    let results;
+    switch (payload.level) {
+      case 1:
+        results = await AutocompleteAPIService.fetchData(payload.query, 'STANDARD_CATEGORY_LV_1');
+        break;
+      case 2:
+        results = await AutocompleteAPIService.fetchData(payload.query, 'STANDARD_CATEGORY_LV_2');
+        break;
+      case 3:
+        results = await AutocompleteAPIService.fetchData(payload.query, 'STANDARD_CATEGORY_LV_3');
+        break;
+      default:
+        results = [];
+    }
+    
+    sendResponse({ 
+      success: true, 
+      data: results.map(r => ({
+        code: r.insertValue,
+        name: r.display,
+        value: r.insertValue,
+        label: r.display
+      }))
+    });
+  } catch (error) {
+    console.error('카테고리 데이터 가져오기 실패:', error);
+    sendResponse({ 
+      success: false, 
+      error: '카테고리 데이터를 가져올 수 없습니다.' 
     });
   }
 }

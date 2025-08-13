@@ -351,6 +351,87 @@ async function searchValues(query: string, inputElement?: HTMLInputElement): Pro
       });
     }
     
+    // STANDARD_CATEGORY_LV_1 타입이면 API 호출
+    if (metadata?.autocompleteType === 'STANDARD_CATEGORY_LV_1') {
+      return new Promise((resolve) => {
+        chrome.runtime.sendMessage(
+          { 
+            type: 'FETCH_CATEGORY_DATA',
+            payload: { query: normalizedQuery, level: 1 }
+          },
+          (response) => {
+            if (response && response.success) {
+              const results = response.data.map((item: any) => ({
+                attribute: metadata,
+                value: item,
+                display: item.label,
+                insertValue: item.value,
+                additionalInfo: null
+              }));
+              resolve(results);
+            } else {
+              console.error('Failed to fetch category level 1 data');
+              resolve([]);
+            }
+          }
+        );
+      });
+    }
+    
+    // STANDARD_CATEGORY_LV_2 타입이면 API 호출
+    if (metadata?.autocompleteType === 'STANDARD_CATEGORY_LV_2') {
+      return new Promise((resolve) => {
+        chrome.runtime.sendMessage(
+          { 
+            type: 'FETCH_CATEGORY_DATA',
+            payload: { query: normalizedQuery, level: 2 }
+          },
+          (response) => {
+            if (response && response.success) {
+              const results = response.data.map((item: any) => ({
+                attribute: metadata,
+                value: item,
+                display: item.label,
+                insertValue: item.value,
+                additionalInfo: null
+              }));
+              resolve(results);
+            } else {
+              console.error('Failed to fetch category level 2 data');
+              resolve([]);
+            }
+          }
+        );
+      });
+    }
+    
+    // STANDARD_CATEGORY_LV_3 타입이면 API 호출
+    if (metadata?.autocompleteType === 'STANDARD_CATEGORY_LV_3') {
+      return new Promise((resolve) => {
+        chrome.runtime.sendMessage(
+          { 
+            type: 'FETCH_CATEGORY_DATA',
+            payload: { query: normalizedQuery, level: 3 }
+          },
+          (response) => {
+            if (response && response.success) {
+              const results = response.data.map((item: any) => ({
+                attribute: metadata,
+                value: item,
+                display: item.label,
+                insertValue: item.value,
+                additionalInfo: null
+              }));
+              resolve(results);
+            } else {
+              console.error('Failed to fetch category level 3 data');
+              resolve([]);
+            }
+          }
+        );
+      });
+    }
+    
     // ENUM 타입이면 enumValues 사용
     if (metadata?.autocompleteType === 'ENUM' && metadata.enumValues) {
       const enumValues = metadata.enumValues.filter((item: any) =>
@@ -725,30 +806,57 @@ function displaySelectedValueName(inputElement: HTMLInputElement, value: string)
   }
   // STANDARD_CATEGORY_LV_1 타입인 경우
   else if (metadata.autocompleteType === 'STANDARD_CATEGORY_LV_1') {
-    // 카테고리 레벨 1 데이터에서 찾기 (현재는 mock 데이터 사용)
-    const category = mockCategoryLevel1Data.find(item => item.code === value);
-    if (category) {
-      displayName = category.name;
-      showNameDisplay(inputElement, displayName, value);
-    }
+    // API 호출로 찾기
+    chrome.runtime.sendMessage(
+      { 
+        type: 'FETCH_CATEGORY_DATA',
+        payload: { query: value, level: 1 }
+      },
+      (response) => {
+        if (response && response.success && response.data.length > 0) {
+          const category = response.data.find((item: any) => item.code === value);
+          if (category) {
+            showNameDisplay(inputElement, category.name, value);
+          }
+        }
+      }
+    );
   }
   // STANDARD_CATEGORY_LV_2 타입인 경우
   else if (metadata.autocompleteType === 'STANDARD_CATEGORY_LV_2') {
-    // 카테고리 레벨 2 데이터에서 찾기 (현재는 mock 데이터 사용)
-    const category = mockCategoryLevel2Data.find(item => item.code === value);
-    if (category) {
-      displayName = category.name;
-      showNameDisplay(inputElement, displayName, value);
-    }
+    // API 호출로 찾기
+    chrome.runtime.sendMessage(
+      { 
+        type: 'FETCH_CATEGORY_DATA',
+        payload: { query: value, level: 2 }
+      },
+      (response) => {
+        if (response && response.success && response.data.length > 0) {
+          const category = response.data.find((item: any) => item.code === value);
+          if (category) {
+            showNameDisplay(inputElement, category.name, value);
+          }
+        }
+      }
+    );
   }
   // STANDARD_CATEGORY_LV_3 타입인 경우
   else if (metadata.autocompleteType === 'STANDARD_CATEGORY_LV_3') {
-    // 카테고리 레벨 3 데이터에서 찾기 (현재는 mock 데이터 사용)
-    const category = mockCategoryLevel3Data.find(item => item.code === value);
-    if (category) {
-      displayName = category.name;
-      showNameDisplay(inputElement, displayName, value);
-    }
+    // API 호출로 찾기
+    chrome.runtime.sendMessage(
+      { 
+        type: 'FETCH_CATEGORY_DATA',
+        payload: { query: value, level: 3 }
+      },
+      (response) => {
+        if (response && response.success && response.data.length > 0) {
+          const category = response.data.find((item: any) => item.code === value);
+          if (category) {
+            showNameDisplay(inputElement, category.name, value);
+          }
+        }
+      }
+    );
   }
 }
 

@@ -477,20 +477,92 @@ class ProductSearchModal {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-top: 8px;
           ">
             <div style="
               font-size: 14px;
               font-weight: 600;
               color: #667eea;
             ">${product.price}</div>
-            <div style="
-              font-size: 12px;
-              color: #6b7280;
-              font-weight: 500;
-            ">GID: ${product.gid}</div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <button class="gid-copy-btn" data-gid="${product.gid}" style="
+                font-size: 12px;
+                color: #6b7280;
+                font-weight: 500;
+                background: #f3f4f6;
+                border: 1px solid #e5e7eb;
+                padding: 4px 8px;
+                border-radius: 6px;
+                cursor: pointer;
+                transition: all 0.2s;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+              ">
+                <span style="font-size: 10px;">📋</span>
+                GID: ${product.gid}
+              </button>
+              <button class="product-link-btn" data-url="${product.linkUrl || `https://www.myrealtrip.com/offers/${product.gid}`}" style="
+                background: #667eea;
+                color: white;
+                border: none;
+                padding: 6px 12px;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.2s;
+                display: flex;
+                align-items: center;
+                gap: 4px;
+              ">
+                <span style="font-size: 10px;">🔗</span>
+                바로가기
+              </button>
+            </div>
           </div>
         </div>
       `;
+
+      // GID 복사 버튼 이벤트
+      const gidBtn = productCard.querySelector('.gid-copy-btn') as HTMLButtonElement;
+      if (gidBtn) {
+        gidBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          this.copyToClipboard(product.gid.toString());
+        });
+        
+        gidBtn.addEventListener('mouseenter', () => {
+          gidBtn.style.background = '#e5e7eb';
+        });
+        
+        gidBtn.addEventListener('mouseleave', () => {
+          gidBtn.style.background = '#f3f4f6';
+        });
+      }
+
+      // 바로가기 버튼 이벤트
+      const linkBtn = productCard.querySelector('.product-link-btn') as HTMLButtonElement;
+      if (linkBtn) {
+        linkBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const url = linkBtn.getAttribute('data-url');
+          if (url) {
+            console.log('Opening product:', product.title, 'URL:', url);
+            window.open(url, '_blank');
+          }
+        });
+        
+        linkBtn.addEventListener('mouseenter', () => {
+          linkBtn.style.background = '#5a67d8';
+          linkBtn.style.transform = 'scale(1.05)';
+        });
+        
+        linkBtn.addEventListener('mouseleave', () => {
+          linkBtn.style.background = '#667eea';
+          linkBtn.style.transform = 'scale(1)';
+        });
+      }
 
       productCard.addEventListener('mouseenter', () => {
         productCard.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
@@ -500,12 +572,6 @@ class ProductSearchModal {
       productCard.addEventListener('mouseleave', () => {
         productCard.style.boxShadow = 'none';
         productCard.style.transform = 'translateY(0)';
-      });
-
-      productCard.addEventListener('click', () => {
-        const url = product.linkUrl || `https://www.myrealtrip.com/offers/${product.gid}`;
-        console.log('Opening product:', product.title, 'URL:', url);
-        window.open(url, '_blank');
       });
 
       this.resultsContainer.appendChild(productCard);
@@ -525,6 +591,77 @@ class ProductSearchModal {
   }
 
   // 에러 표시
+  // 클립보드 복사 기능
+  private async copyToClipboard(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      this.showCopyNotification();
+    } catch (err) {
+      // 폴백: 구형 브라우저 지원
+      const textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        this.showCopyNotification();
+      } catch (err) {
+        console.error('Failed to copy:', err);
+      }
+      document.body.removeChild(textArea);
+    }
+  }
+
+  // 복사 완료 알림 표시
+  private showCopyNotification() {
+    // 기존 알림 제거
+    const existingNotification = document.querySelector('.copy-notification');
+    if (existingNotification) {
+      existingNotification.remove();
+    }
+
+    // 알림 생성
+    const notification = document.createElement('div');
+    notification.className = 'copy-notification';
+    notification.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      z-index: 100000;
+      animation: fadeInOut 2s ease-in-out;
+      pointer-events: none;
+    `;
+    notification.innerHTML = '✅ GID가 복사되었습니다';
+
+    // 애니메이션 스타일 추가
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes fadeInOut {
+        0% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+        20% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+        100% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+      }
+    `;
+    document.head.appendChild(style);
+
+    document.body.appendChild(notification);
+
+    // 2초 후 제거
+    setTimeout(() => {
+      notification.remove();
+    }, 2000);
+  }
+
   private displayError() {
     if (!this.resultsContainer) return;
 

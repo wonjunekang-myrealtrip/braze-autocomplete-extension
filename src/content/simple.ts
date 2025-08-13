@@ -1082,8 +1082,29 @@ function detectInputFields() {
                 createDropdown(results, target);
               }
             }
-          } 
-          // ENUM이 아닌 타입에서도 값이 있으면 자동완성 표시
+          }
+          // 카테고리 타입인 경우 - 포커스 시 전체 목록 표시
+          else if (metadata?.autocompleteType && 
+                   (metadata.autocompleteType === 'STANDARD_CATEGORY_LV_1' ||
+                    metadata.autocompleteType === 'STANDARD_CATEGORY_LV_2' ||
+                    metadata.autocompleteType === 'STANDARD_CATEGORY_LV_3')) {
+            console.log('카테고리 타입 포커스 - 전체 목록 표시');
+            
+            if (query.length === 0) {
+              // 입력값이 없을 때 전체 카테고리 목록 표시 (빈 문자열로 검색)
+              const results = await searchValues('', target);
+              if (results.length > 0) {
+                createDropdown(results, target);
+              }
+            } else {
+              // 입력값이 있을 때 필터링된 옵션 표시
+              const results = await searchValues(query, target);
+              if (results.length > 0) {
+                createDropdown(results, target);
+              }
+            }
+          }
+          // 그 외 타입에서도 값이 있으면 자동완성 표시
           else if (query.length >= 1) {
             console.log('포커스/클릭 시 자동완성 재표시:', query);
             const results = await searchValues(query, target);

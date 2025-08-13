@@ -384,12 +384,19 @@ async function handleFetchCategoryData(
     
     sendResponse({ 
       success: true, 
-      data: results.map(r => ({
-        code: r.insertValue || r.value,
-        name: r.display || r.label,
-        value: r.insertValue || r.value,
-        label: r.display || r.label
-      }))
+      data: results.map(r => {
+        // display/label에서 괄호 앞 부분만 추출 (한글 이름만)
+        const displayText = r.display || r.label || '';
+        const nameMatch = displayText.match(/^([^(]+)/);
+        const nameOnly = nameMatch ? nameMatch[1].trim() : displayText;
+        
+        return {
+          code: r.insertValue || r.value,
+          name: nameOnly,  // 괄호 없는 한글 이름만
+          value: r.insertValue || r.value,
+          label: r.display || r.label  // 전체 텍스트 (드롭다운용)
+        };
+      })
     });
   } catch (error) {
     console.error('카테고리 데이터 가져오기 실패:', error);

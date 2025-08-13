@@ -204,13 +204,22 @@ function getCurrentAttributeMetadata(inputElement: HTMLInputElement): any {
 // 검색 함수 (비동기로 변경)
 async function searchValues(query: string, inputElement?: HTMLInputElement): Promise<any[]> {
   const normalizedQuery = query.toLowerCase().trim();
-  if (normalizedQuery.length < 1) return [];
   
   console.log('searchValues called with query:', query);
   
   // 현재 속성의 메타데이터 확인
   if (inputElement) {
     const metadata = getCurrentAttributeMetadata(inputElement);
+    
+    // 카테고리 타입은 빈 쿼리도 허용 (전체 목록 표시)
+    const isCategoryType = metadata?.autocompleteType === 'STANDARD_CATEGORY_LV_1' ||
+                          metadata?.autocompleteType === 'STANDARD_CATEGORY_LV_2' ||
+                          metadata?.autocompleteType === 'STANDARD_CATEGORY_LV_3';
+    
+    // 카테고리가 아닌 경우에만 빈 쿼리 체크
+    if (!isCategoryType && normalizedQuery.length < 1) {
+      return [];
+    }
     
     if (metadata) {
       console.log('Autocomplete type:', metadata.autocompleteType);

@@ -358,28 +358,37 @@ async function handleFetchCategoryData(
   try {
     console.log('Fetching category data:', payload);
     
-    let results;
+    let metaType: string;
     switch (payload.level) {
       case 1:
-        results = await AutocompleteAPIService.fetchData(payload.query, 'STANDARD_CATEGORY_LV_1');
+        metaType = 'STANDARD_CATEGORY_LV_1';
         break;
       case 2:
-        results = await AutocompleteAPIService.fetchData(payload.query, 'STANDARD_CATEGORY_LV_2');
+        metaType = 'STANDARD_CATEGORY_LV_2';
         break;
       case 3:
-        results = await AutocompleteAPIService.fetchData(payload.query, 'STANDARD_CATEGORY_LV_3');
+        metaType = 'STANDARD_CATEGORY_LV_3';
         break;
       default:
-        results = [];
+        sendResponse({ 
+          success: false, 
+          error: '잘못된 카테고리 레벨입니다.' 
+        });
+        return;
     }
+    
+    const results = await AutocompleteAPIService.fetchAutocompleteData(
+      metaType,
+      payload.query
+    );
     
     sendResponse({ 
       success: true, 
       data: results.map(r => ({
-        code: r.insertValue,
-        name: r.display,
-        value: r.insertValue,
-        label: r.display
+        code: r.insertValue || r.value,
+        name: r.display || r.label,
+        value: r.insertValue || r.value,
+        label: r.display || r.label
       }))
     });
   } catch (error) {

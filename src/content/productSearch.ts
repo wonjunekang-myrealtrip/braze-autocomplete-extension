@@ -68,7 +68,14 @@ class ProductSearchModal {
     });
 
     button.addEventListener('click', () => {
-      this.showModal();
+      const existingModal = document.getElementById('mrt-search-modal');
+      if (existingModal && existingModal.style.display === 'flex') {
+        // 모달이 이미 열려있으면 닫기
+        this.hideModal();
+      } else {
+        // 모달이 닫혀있으면 열기
+        this.showModal();
+      }
     });
 
     document.body.appendChild(button);

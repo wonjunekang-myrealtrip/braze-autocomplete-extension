@@ -484,40 +484,42 @@ class ProductSearchModal {
               font-weight: 600;
               color: #667eea;
             ">${product.price}</div>
-            <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="display: flex; align-items: center; gap: 6px;">
               <button class="gid-copy-btn" data-gid="${product.gid}" style="
-                font-size: 12px;
+                font-size: 11px;
                 color: #6b7280;
                 font-weight: 500;
-                background: #f3f4f6;
+                background: #f9fafb;
                 border: 1px solid #e5e7eb;
-                padding: 4px 8px;
-                border-radius: 6px;
+                padding: 3px 6px;
+                border-radius: 4px;
                 cursor: pointer;
                 transition: all 0.2s;
                 display: flex;
                 align-items: center;
-                gap: 4px;
+                gap: 3px;
+                line-height: 1;
               ">
-                <span style="font-size: 10px;">📋</span>
-                GID: ${product.gid}
+                <span style="font-size: 9px;">📋</span>
+                <span>${product.gid}</span>
               </button>
               <button class="product-link-btn" data-url="${product.linkUrl || `https://www.myrealtrip.com/offers/${product.gid}`}" style="
                 background: #667eea;
                 color: white;
                 border: none;
-                padding: 6px 12px;
-                border-radius: 6px;
-                font-size: 12px;
+                padding: 4px 8px;
+                border-radius: 4px;
+                font-size: 11px;
                 font-weight: 500;
                 cursor: pointer;
                 transition: all 0.2s;
                 display: flex;
                 align-items: center;
-                gap: 4px;
+                gap: 3px;
+                line-height: 1;
               ">
-                <span style="font-size: 10px;">🔗</span>
-                바로가기
+                <span style="font-size: 9px;">🔗</span>
+                <span>바로가기</span>
               </button>
             </div>
           </div>
@@ -627,29 +629,42 @@ class ProductSearchModal {
     notification.className = 'copy-notification';
     notification.style.cssText = `
       position: fixed;
-      top: 50%;
+      bottom: 30px;
       left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(0, 0, 0, 0.8);
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.85);
       color: white;
       padding: 12px 24px;
       border-radius: 8px;
       font-size: 14px;
       font-weight: 500;
       z-index: 100000;
-      animation: fadeInOut 2s ease-in-out;
+      animation: slideUpFadeInOut 2s ease-in-out;
       pointer-events: none;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     `;
     notification.innerHTML = '✅ GID가 복사되었습니다';
 
     // 애니메이션 스타일 추가
     const style = document.createElement('style');
     style.textContent = `
-      @keyframes fadeInOut {
-        0% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
-        20% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-        80% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
-        100% { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+      @keyframes slideUpFadeInOut {
+        0% { 
+          opacity: 0; 
+          transform: translateX(-50%) translateY(20px);
+        }
+        20% { 
+          opacity: 1; 
+          transform: translateX(-50%) translateY(0);
+        }
+        80% { 
+          opacity: 1; 
+          transform: translateX(-50%) translateY(0);
+        }
+        100% { 
+          opacity: 0; 
+          transform: translateX(-50%) translateY(10px);
+        }
       }
     `;
     document.head.appendChild(style);

@@ -75,6 +75,7 @@ const attributeDescriptions: { [key: string]: string } = {
 // Mock 데이터
 // 실제 속성 메타데이터를 저장할 변수
 let attributeMetadata: any[] = [];
+let eventMetadata: any[] = [];
 
 // Background script에서 속성 데이터 가져오기 (초기 로드)
 function loadAttributeMetadata() {
@@ -90,8 +91,53 @@ function loadAttributeMetadata() {
   });
 }
 
+// Background script에서 이벤트 데이터 가져오기
+function loadEventMetadata() {
+  chrome.runtime.sendMessage({ type: 'GET_EVENTS' }, (response) => {
+    if (response && response.success) {
+      eventMetadata = response.data || [];
+      console.log('이벤트 메타데이터 로드:', eventMetadata.length);
+      
+      // 데이터 로드 후 UI 업데이트
+      enhanceEventOptions();
+      enhanceSelectedEvents();
+    }
+  });
+}
+
 // 페이지 로드 시 바로 데이터 요청
 loadAttributeMetadata();
+loadEventMetadata();
+
+// Custom Event 메타데이터 찾기
+function findEventMetadata(input: HTMLInputElement): any {
+  // Custom Events 필터 컨테이너 찾기
+  const filterContainer = input.closest('.custom_events_filter');
+  if (!filterContainer) return null;
+  
+  // 선택된 이벤트 이름 찾기
+  const selectedEvent = filterContainer.querySelector('.bcl-select__single-value');
+  const eventName = selectedEvent?.textContent?.trim();
+  
+  if (!eventName) return null;
+  
+  // 메타데이터에서 찾기
+  const metadata = eventMetadata.find(e => e.event === eventName);
+  
+  if (metadata) {
+    // 복수의 자동완성 타입을 처리
+    // 첫 번째 타입을 기본으로 사용 (나중에 UI로 선택 가능하게 개선 가능)
+    if (metadata.autocompleteTypes && metadata.autocompleteTypes.length > 0) {
+      return {
+        ...metadata,
+        autocompleteType: metadata.autocompleteTypes[0],
+        allAutocompleteTypes: metadata.autocompleteTypes
+      };
+    }
+  }
+  
+  return metadata;
+}
 
 const mockAttributes = [
   {
@@ -1019,7 +1065,9 @@ function detectInputFields() {
     'input[placeholder*="경기"]',
     // 필터 입력 필드 (Attribute value 영역)
     '.filter-input-any input[type="text"]:not(.bcl-select__input)',
-    '.custom_attributes_filter input[type="text"]:not(.bcl-select__input)'
+    '.custom_attributes_filter input[type="text"]:not(.bcl-select__input)',
+    // Custom Events의 Number of times 입력 필드
+    '.custom_events_filter input[type="text"]:not(.bcl-select__input)'
   ];
   
   selectors.forEach(selector => {
@@ -1314,7 +1362,87 @@ setTimeout(() => {
     enhanceAttributeOptions();
     enhanceSelectedAttributes();
   }
+  
+  if (eventMetadata.length === 0) {
+    loadEventMetadata();
+  } else {
+    enhanceEventOptions();
+    enhanceSelectedEvents();
+  }
 }, 1000);
+
+// Braze event 선택 목록에 한글명 추가
+function enhanceEventOptions() {
+  // Custom Event 옵션들 찾기
+  const eventOptions = document.querySelectorAll([
+    '.custom_events_filter .bcl-select__option',
+    '[class*="custom_events"] .bcl-select__option'
+  ].join(','));
+  
+  eventOptions.forEach(option => {
+    const labelElement = option.querySelector('.bcl-select__option__label');
+    if (!labelElement) return;
+    
+    const eventName = labelElement.textContent?.trim();
+    if (!eventName) return;
+    
+    // 이미 처리된 경우 스킵
+    if (option.hasAttribute('data-event-enhanced')) return;
+    
+    // 메타데이터에서 매칭되는 이벤트 찾기
+    const metadata = eventMetadata.find(e => e.event === eventName);
+    
+    if (metadata && metadata.name) {
+      // 한글명 추가
+      const korNameSpan = document.createElement('span');
+      korNameSpan.style.cssText = 'color: #6b7280; margin-left: 8px; font-size: 0.9em;';
+      korNameSpan.textContent = `(${metadata.name})`;
+      labelElement.appendChild(korNameSpan);
+      
+      // 설명 추가 (툴팁)
+      if (metadata.description) {
+        option.setAttribute('title', metadata.description);
+      }
+      
+      // 자동완성 타입 정보 추가
+      if (metadata.autocompleteTypes && metadata.autocompleteTypes.length > 0) {
+        option.setAttribute('data-autocomplete-types', metadata.autocompleteTypes.join(','));
+      }
+    }
+    
+    option.setAttribute('data-event-enhanced', 'true');
+  });
+}
+
+// 선택된 이벤트에 한글명 표시
+function enhanceSelectedEvents() {
+  // 선택된 이벤트 표시 영역 찾기
+  const selectedEvents = document.querySelectorAll([
+    '.custom_events_filter .bcl-select__single-value',
+    '.custom_events_filter .bcl-select__value-container'
+  ].join(','));
+  
+  selectedEvents.forEach(element => {
+    const eventName = element.textContent?.trim();
+    if (!eventName) return;
+    
+    // 이미 처리된 경우 스킵
+    if (element.hasAttribute('data-event-enhanced')) return;
+    
+    // 메타데이터에서 매칭되는 이벤트 찾기
+    const metadata = eventMetadata.find(e => e.event === eventName);
+    
+    if (metadata && metadata.name) {
+      // 한글명 추가
+      const korNameSpan = document.createElement('span');
+      korNameSpan.style.cssText = 'color: #6b7280; margin-left: 8px; font-size: 0.9em;';
+      korNameSpan.textContent = `(${metadata.name})`;
+      element.appendChild(korNameSpan);
+    }
+    
+    element.setAttribute('data-event-enhanced', 'true');
+  });
+}
 
 // Braze attribute 선택 목록에 한글명 추가
 function enhanceAttributeOptions() {
@@ -1456,6 +1584,15 @@ const observer = new MutationObserver((mutations) => {
     enhanceSelectedAttributes();
   }
   
+  // 이벤트 메타데이터가 로드된 경우
+  if (eventMetadata.length > 0) {
+    // event 옵션 목록 개선
+    enhanceEventOptions();
+    
+    // 선택된 event 개선
+    enhanceSelectedEvents();
+  }
+  
   // 드롭다운이 열렸는지 확인
   mutations.forEach(mutation => {
     mutation.addedNodes.forEach(node => {
@@ -1508,6 +1645,13 @@ setInterval(() => {
   } else {
     // 데이터가 아직 로드되지 않았으면 다시 요청
     loadAttributeMetadata();
+  }
+  
+  if (eventMetadata.length > 0) {
+    enhanceEventOptions();
+    enhanceSelectedEvents();
+  } else {
+    loadEventMetadata();
   }
 }, 3000);
 

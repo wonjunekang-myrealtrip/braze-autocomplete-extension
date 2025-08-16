@@ -11,6 +11,18 @@ export interface AttributeMetadata {
   dataType?: string;       // Data Type (인덱스 4)
 }
 
+// Event 관련 타입 정의
+export interface EventMetadata {
+  event: string;           // Custom Events (B열, 인덱스 1)
+  name: string;            // 이벤트명 (C열, 인덱스 2)
+  description?: string;    // Description (F열, 인덱스 5)
+  autocompleteTypes?: string[]; // 자동완성 메타 (I열, 인덱스 8) - 복수 선택 가능
+  enumValues?: Array<{     // ENUM 값 (J열, 인덱스 9)
+    value: string;         // 실제 값 (key)
+    label: string;         // 표시 레이블 (한글명)
+  }>;
+}
+
 export interface SearchResult {
   value: string;
   label: string;

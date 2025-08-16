@@ -1,8 +1,8 @@
-import { AttributeMetadata, ExtensionMessage, CacheData } from '@/shared/types';
+import { AttributeMetadata, EventMetadata, ExtensionMessage, CacheData } from '@/shared/types';
 import { mockAttributes } from '@/shared/mockData';
 import { CACHE_KEYS, CACHE_TTL } from '@/shared/constants';
 import { AutocompleteAPIService } from '@/services/autocompleteAPIService';
-import { getGoogleSheetsUrl } from '@/config/config';
+import { getGoogleSheetsUrl, getGoogleSheetsEventsUrl } from '@/config/config';
 
 // Service Worker 환경 확인
 const isServiceWorker = typeof self !== 'undefined' && self instanceof ServiceWorkerGlobalScope;
@@ -25,6 +25,71 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id) {
   });
 } else {
   console.warn('Chrome API not fully available - running in limited mode');
+}
+
+// Google Sheets에서 Custom Events 데이터 가져오기
+async function fetchGoogleSheetsEventsData(): Promise<EventMetadata[]> {
+  try {
+    const response = await fetch(getGoogleSheetsEventsUrl());
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch events: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (!data.values || data.values.length <= 1) {
+      console.warn('No events data in Google Sheets');
+      return [];
+    }
+    
+    const dataRows = data.values.slice(1); // 헤더 제외
+    const events: EventMetadata[] = [];
+    
+    for (const row of dataRows) {
+      // B열(인덱스 1 - Custom Events)이 비어있으면 스킵
+      if (!row[1] || row[1].trim() === '') {
+        continue;
+      }
+      
+      const event: EventMetadata = {
+        event: row[1] || '',          // B열: Custom Events
+        name: row[2] || '',            // C열: 이벤트명
+        description: row[5] || '',     // F열: Description
+      };
+      
+      // I열(인덱스 8): 자동완성 메타 - 복수 선택 가능
+      if (row[8] && row[8].trim() !== '' && row[8].trim() !== 'NONE') {
+        // 콤마나 공백으로 구분된 여러 타입을 배열로 변환
+        event.autocompleteTypes = row[8]
+          .split(/[,\s]+/)
+          .map(t => t.trim())
+          .filter(t => t.length > 0);
+      }
+      
+      // J열(인덱스 9): ENUM 값들
+      if (row[9] && row[9].trim() !== '') {
+        const enumValues = row[9]
+          .split(/[,;\n]/)
+          .map(v => v.trim())
+          .filter(v => v.length > 0);
+        
+        event.enumValues = enumValues.map(v => ({
+          value: v,
+          label: v
+        }));
+      }
+      
+      events.push(event);
+    }
+    
+    console.log(`Loaded ${events.length} events from Google Sheets`);
+    return events;
+    
+  } catch (error) {
+    console.error('Error fetching Google Sheets events data:', error);
+    return [];
+  }
 }
 
 // Google Sheets에서 데이터 가져오기
@@ -156,6 +221,10 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage)
       case 'GET_ATTRIBUTES':
         handleGetAttributes(sendResponse);
         return true; // 비동기 응답을 위해 true 반환
+      
+      case 'GET_EVENTS':
+        handleGetEvents(sendResponse);
+        return true; // 비동기 응답을 위해 true 반환
         
       case 'SEARCH_ATTRIBUTES':
         handleSearchAttributes(message.payload, sendResponse);
@@ -193,6 +262,45 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage)
         sendResponse({ error: '알 수 없는 메시지 타입' });
     }
   });
+}
+
+// 이벤트 데이터 조회
+async function handleGetEvents(sendResponse: (response: any) => void) {
+  try {
+    // 캐시 확인
+    const cached = await chrome.storage.local.get('cachedEvents');
+    const now = Date.now();
+    
+    if (cached.cachedEvents && 
+        cached.cachedEvents.timestamp && 
+        (now - cached.cachedEvents.timestamp < CACHE_TTL.ATTRIBUTES)) {
+      console.log('캐시된 Events 데이터 사용');
+      sendResponse({ success: true, data: cached.cachedEvents.data });
+      return;
+    }
+    
+    // Google Sheets에서 새로 가져오기
+    console.log('Google Sheets에서 Events 데이터 가져오기...');
+    const events = await fetchGoogleSheetsEventsData();
+    
+    if (events.length > 0) {
+      // 캐시에 저장
+      await chrome.storage.local.set({
+        cachedEvents: {
+          data: events,
+          timestamp: now
+        }
+      });
+      
+      sendResponse({ success: true, data: events });
+    } else {
+      console.warn('No events data available');
+      sendResponse({ success: true, data: [] });
+    }
+  } catch (error) {
+    console.error('Error in handleGetEvents:', error);
+    sendResponse({ success: false, error: error.message });
+  }
 }
 
 // 속성 데이터 조회

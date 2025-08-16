@@ -5,6 +5,7 @@ export const API_CONFIG = {
   GOOGLE_SHEETS_API_KEY: import.meta.env.VITE_GOOGLE_SHEETS_API_KEY || '',
   GOOGLE_SHEETS_ID: import.meta.env.VITE_GOOGLE_SHEETS_ID || '',
   GOOGLE_SHEETS_RANGE: import.meta.env.VITE_GOOGLE_SHEETS_RANGE || '',
+  GOOGLE_SHEETS_EVENTS_RANGE: import.meta.env.VITE_GOOGLE_SHEETS_EVENTS_RANGE || 'Custom%20Events!A1:K1000',
   
   // MyRealTrip APIs
   MRT_API_BASE: 'https://api3.myrealtrip.com',
@@ -13,4 +14,8 @@ export const API_CONFIG = {
 
 export const getGoogleSheetsUrl = () => {
   return `https://sheets.googleapis.com/v4/spreadsheets/${API_CONFIG.GOOGLE_SHEETS_ID}/values/${API_CONFIG.GOOGLE_SHEETS_RANGE}?key=${API_CONFIG.GOOGLE_SHEETS_API_KEY}`;
+};
+
+export const getGoogleSheetsEventsUrl = () => {
+  return `https://sheets.googleapis.com/v4/spreadsheets/${API_CONFIG.GOOGLE_SHEETS_ID}/values/${API_CONFIG.GOOGLE_SHEETS_EVENTS_RANGE}?key=${API_CONFIG.GOOGLE_SHEETS_API_KEY}`;
 };

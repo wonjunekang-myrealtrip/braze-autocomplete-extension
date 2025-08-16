@@ -1,4 +1,4 @@
-import { AttributeMetadata } from './types';
+import { AttributeMetadata, EventMetadata } from './types';
 
 // Google Sheets 데이터 기반 목 데이터
 export const mockAttributes: AttributeMetadata[] = [

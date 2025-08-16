@@ -298,19 +298,23 @@ function findEventMetadata(input: HTMLInputElement): any {
         let selectedType = '';
         
         // property 이름 기반 매칭
-        if (propertyName.toLowerCase().includes('city')) {
+        const lowerPropertyName = propertyName.toLowerCase();
+        
+        if (lowerPropertyName.includes('city')) {
           selectedType = 'CITY';
-        } else if (propertyName.toLowerCase().includes('country')) {
+        } else if (lowerPropertyName.includes('country')) {
           selectedType = 'COUNTRY';
-        } else if (propertyName.toLowerCase().includes('lv_1') || propertyName.toLowerCase().includes('category_1')) {
-          selectedType = 'STANDARD_CATEGORY_LV_1';
-        } else if (propertyName.toLowerCase().includes('lv_2') || propertyName.toLowerCase().includes('category_2')) {
-          selectedType = 'STANDARD_CATEGORY_LV_2';
-        } else if (propertyName.toLowerCase().includes('lv_3') || propertyName.toLowerCase().includes('category_3')) {
+        } else if (lowerPropertyName === 'lv_3_cd' || lowerPropertyName.includes('level_3') || lowerPropertyName.includes('category_3')) {
           selectedType = 'STANDARD_CATEGORY_LV_3';
-        } else if (propertyName.toLowerCase().includes('airport')) {
+        } else if (lowerPropertyName === 'lv_2_cd' || lowerPropertyName.includes('level_2') || lowerPropertyName.includes('category_2')) {
+          selectedType = 'STANDARD_CATEGORY_LV_2';
+        } else if (lowerPropertyName === 'lv_1_cd' || lowerPropertyName.includes('level_1') || lowerPropertyName.includes('category_1')) {
+          selectedType = 'STANDARD_CATEGORY_LV_1';
+        } else if (lowerPropertyName.includes('airport')) {
           selectedType = 'AIRPORT';
         }
+        
+        console.log('Property 매칭 결과:', propertyName, '->', selectedType);
         
         // 선택된 타입이 이벤트의 자동완성 타입에 포함되어 있는지 확인
         if (selectedType && eventMeta.autocompleteTypes.includes(selectedType)) {
@@ -1066,10 +1070,35 @@ function displaySelectedValueName(inputElement: HTMLInputElement, value: string)
   if (metadata.allAutocompleteTypes && metadata.allAutocompleteTypes.length > 0) {
     // 카테고리 타입 확인
     if (value.startsWith('Package_') || value.startsWith('Tour_') || value.startsWith('Activity_')) {
-      // 카테고리 레벨 결정
+      // property 이름에서 카테고리 레벨 결정
       let level = 1;
-      if (metadata.autocompleteType === 'STANDARD_CATEGORY_LV_2') level = 2;
-      else if (metadata.autocompleteType === 'STANDARD_CATEGORY_LV_3') level = 3;
+      
+      // property 이름 찾기 (Campaign Trigger에서)
+      const filterTemplate = inputElement.closest('.filter-template');
+      if (filterTemplate) {
+        const parentWrapper = filterTemplate.closest('.selection-wrapper')?.parentElement;
+        if (parentWrapper) {
+          const propertyText = parentWrapper.querySelector('.select2-selection__rendered')?.textContent?.trim() || '';
+          
+          // lv_1_cd, lv_2_cd, lv_3_cd에 따라 레벨 설정
+          if (propertyText.includes('lv_3') || propertyText.includes('level_3')) {
+            level = 3;
+          } else if (propertyText.includes('lv_2') || propertyText.includes('level_2')) {
+            level = 2;
+          } else if (propertyText.includes('lv_1') || propertyText.includes('level_1')) {
+            level = 1;
+          }
+        }
+      }
+      
+      // 또는 metadata의 autocompleteType에서 확인
+      if (metadata.allAutocompleteTypes.includes('STANDARD_CATEGORY_LV_3') && level === 1) {
+        // 더 구체적인 레벨 찾기
+        if (metadata.autocompleteType === 'STANDARD_CATEGORY_LV_3') level = 3;
+        else if (metadata.autocompleteType === 'STANDARD_CATEGORY_LV_2') level = 2;
+      }
+      
+      console.log('카테고리 헬퍼 텍스트 요청 - value:', value, 'level:', level);
       
       chrome.runtime.sendMessage(
         { 
@@ -1080,6 +1109,7 @@ function displaySelectedValueName(inputElement: HTMLInputElement, value: string)
           if (response && response.success && response.data.length > 0) {
             const category = response.data.find((item: any) => item.code === value || item.value === value);
             if (category) {
+              console.log('카테고리 찾음:', category);
               showNameDisplay(inputElement, category.name, value);
             }
           }

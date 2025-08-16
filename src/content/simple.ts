@@ -220,6 +220,34 @@ async function getDataForSingleType(type: string, query: string, metadata: any):
 
 // Custom Event 메타데이터 찾기
 function findEventMetadata(input: HTMLInputElement): any {
+  // Campaign Trigger의 Custom Event 컨테이너 확인
+  const triggerContainer = input.closest('.db-performed-custom-event-action');
+  if (triggerContainer) {
+    // Campaign Trigger에서 선택된 이벤트 찾기
+    const selectedEvent = triggerContainer.querySelector('.select2-selection__rendered');
+    let eventName = selectedEvent?.textContent?.trim();
+    
+    // 한글명이 포함된 경우 이벤트명만 추출
+    if (eventName && eventName.includes('(')) {
+      eventName = eventName.split('(')[0].trim();
+    }
+    
+    if (eventName) {
+      const metadata = eventMetadata.find(e => e.event === eventName);
+      if (metadata) {
+        // 복수의 자동완성 타입을 처리
+        if (metadata.autocompleteTypes && metadata.autocompleteTypes.length > 0) {
+          return {
+            ...metadata,
+            autocompleteType: metadata.autocompleteTypes[0],
+            allAutocompleteTypes: metadata.autocompleteTypes
+          };
+        }
+        return metadata;
+      }
+    }
+  }
+  
   // Custom Events 필터 컨테이너 찾기
   const filterContainer = input.closest('.custom_events_filter');
   if (!filterContainer) return null;
@@ -295,6 +323,13 @@ let currentResults: any[] = []; // 현재 표시된 검색 결과 저장
 
 // 현재 입력 중인 속성의 메타데이터 찾기
 function getCurrentAttributeMetadata(inputElement: HTMLInputElement): any {
+  // Campaign Trigger의 Custom Event property인지 확인
+  const triggerContainer = inputElement.closest('.db-performed-custom-event-action');
+  if (triggerContainer) {
+    // Campaign Trigger Events 처리
+    return findEventMetadata(inputElement);
+  }
+  
   // 입력 필드가 속한 필터 컨테이너 찾기
   const filterContainer = inputElement.closest('.segment-filter-container');
   if (!filterContainer) {
@@ -1204,7 +1239,10 @@ function detectInputFields() {
     '.filter-input-any input[type="text"]:not(.bcl-select__input)',
     '.custom_attributes_filter input[type="text"]:not(.bcl-select__input)',
     // Custom Events의 Number of times 입력 필드
-    '.custom_events_filter input[type="text"]:not(.bcl-select__input)'
+    '.custom_events_filter input[type="text"]:not(.bcl-select__input)',
+    // Campaign Trigger의 Custom Event property 값 입력 필드
+    '.db-performed-custom-event-action input[type="text"]:not(.select2-search__field)',
+    '.boolean-logic-composer input[type="text"]:not(.select2-search__field)'
   ];
   
   selectors.forEach(selector => {
@@ -1510,13 +1548,60 @@ setTimeout(() => {
 
 // Braze event 선택 목록에 한글명 추가
 function enhanceEventOptions() {
-  // Custom Event 옵션들 찾기
+  // Custom Event 옵션들 찾기 (필터와 트리거 모두)
   const eventOptions = document.querySelectorAll([
     '.custom_events_filter .bcl-select__option',
-    '[class*="custom_events"] .bcl-select__option'
+    '[class*="custom_events"] .bcl-select__option',
+    // Campaign Trigger의 Custom Event 드롭다운 (select2)
+    '.db-performed-custom-event-action select option',
+    '.db-performed-custom-event-action .select2-results__option'
   ].join(','));
   
   eventOptions.forEach(option => {
+    // select2 option 처리 (Campaign Trigger)
+    if (option.tagName === 'OPTION') {
+      const eventName = option.textContent?.trim() || option.value;
+      if (!eventName) return;
+      
+      // 이미 처리된 경우 스킵
+      if (option.hasAttribute('data-event-enhanced')) return;
+      
+      // 메타데이터에서 매칭되는 이벤트 찾기
+      const metadata = eventMetadata.find(e => e.event === eventName);
+      
+      if (metadata && metadata.name) {
+        // option 텍스트에 한글명 추가
+        option.textContent = `${eventName} (${metadata.name})`;
+        
+        // 설명 추가 (툴팁)
+        if (metadata.description) {
+          option.setAttribute('title', metadata.description);
+        }
+      }
+      
+      option.setAttribute('data-event-enhanced', 'true');
+      return;
+    }
+    
+    // select2 results option 처리
+    if (option.classList.contains('select2-results__option')) {
+      const eventName = option.textContent?.trim();
+      if (!eventName || eventName.includes('(')) return; // 이미 처리된 경우
+      
+      // 메타데이터에서 매칭되는 이벤트 찾기
+      const metadata = eventMetadata.find(e => e.event === eventName);
+      
+      if (metadata && metadata.name) {
+        option.textContent = `${eventName} (${metadata.name})`;
+        
+        if (metadata.description) {
+          option.setAttribute('title', metadata.description);
+        }
+      }
+      return;
+    }
+    
+    // 기존 bcl-select 처리
     const labelElement = option.querySelector('.bcl-select__option__label');
     if (!labelElement) return;
     
@@ -1556,7 +1641,9 @@ function enhanceSelectedEvents() {
   // 선택된 이벤트 표시 영역 찾기
   const selectedEvents = document.querySelectorAll([
     '.custom_events_filter .bcl-select__single-value',
-    '.custom_events_filter .bcl-select__value-container'
+    '.custom_events_filter .bcl-select__value-container',
+    // Campaign Trigger의 선택된 이벤트 (select2)
+    '.db-performed-custom-event-action .select2-selection__rendered'
   ].join(','));
   
   selectedEvents.forEach(element => {

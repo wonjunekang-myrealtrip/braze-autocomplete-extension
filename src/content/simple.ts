@@ -228,22 +228,31 @@ function findEventMetadata(input: HTMLInputElement): any {
     console.log('Campaign Trigger 컨테이너 발견');
     
     // property 필드의 이름 찾기 (city_name 같은)
-    // 입력 필드 바로 위나 근처의 select/dropdown에서 property 이름 찾기
-    const propertyContainer = input.closest('[class*="filter"]') || input.closest('div');
+    // 입력 필드가 속한 가장 가까운 필터 템플릿 찾기
+    const filterTemplate = input.closest('.filter-template');
+    const parentContainer = filterTemplate?.parentElement?.parentElement;
     let propertyName = '';
     
-    // property 선택 드롭다운 찾기
-    const propertySelect = propertyContainer?.querySelector('select:not([name="custom_event"])');
-    if (propertySelect) {
-      propertyName = (propertySelect as HTMLSelectElement).value;
-      console.log('Property select 값:', propertyName);
-    }
-    
-    // select가 없으면 렌더링된 텍스트에서 찾기
-    if (!propertyName) {
-      const propertyDropdown = propertyContainer?.querySelector('.select2-selection__rendered, .bcl-select__single-value');
-      propertyName = propertyDropdown?.textContent?.trim() || '';
-      console.log('Property 렌더링 텍스트:', propertyName);
+    // 같은 필터 블록 내에서 property 선택 드롭다운 찾기
+    if (parentContainer) {
+      // select2로 렌더링된 property 이름 찾기 (같은 블록 내에서)
+      const propertyDropdown = parentContainer.querySelector('.select2-selection__rendered');
+      if (propertyDropdown) {
+        propertyName = propertyDropdown.textContent?.trim() || '';
+        console.log('같은 블록의 Property 텍스트:', propertyName);
+      }
+      
+      // select 요소에서도 찾기
+      if (!propertyName) {
+        const propertySelect = parentContainer.querySelector('select:not([name="custom_event"])');
+        if (propertySelect) {
+          const selectedOption = (propertySelect as HTMLSelectElement).selectedOptions[0];
+          if (selectedOption) {
+            propertyName = selectedOption.textContent?.trim() || '';
+            console.log('Select option 텍스트:', propertyName);
+          }
+        }
+      }
     }
     
     // property 이름으로 이벤트 메타데이터 찾기

@@ -1332,7 +1332,10 @@ function detectInputFields() {
     // 더 구체적인 선택자 추가
     '.filter-template input[type="text"]',
     '.disjunction-set input[type="text"]:not(.select2-search__field)',
-    'input.regex'  // regex 클래스를 가진 입력 필드
+    'input.regex',  // regex 클래스를 가진 입력 필드
+    // KnockoutJS 템플릿 내부 입력 필드
+    '.ko-template input[type="text"]:not(.select2-search__field)',
+    '.ad-hoc-filter input[type="text"]:not(.select2-search__field)'
   ];
   
   selectors.forEach(selector => {

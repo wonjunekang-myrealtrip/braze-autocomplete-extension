@@ -5,7 +5,7 @@ export const API_CONFIG = {
   GOOGLE_SHEETS_API_KEY: import.meta.env.VITE_GOOGLE_SHEETS_API_KEY || '',
   GOOGLE_SHEETS_ID: import.meta.env.VITE_GOOGLE_SHEETS_ID || '',
   GOOGLE_SHEETS_RANGE: import.meta.env.VITE_GOOGLE_SHEETS_RANGE || '',
-  GOOGLE_SHEETS_EVENTS_RANGE: import.meta.env.VITE_GOOGLE_SHEETS_EVENTS_RANGE || 'Custom%20Events!A1:K1000',
+  GOOGLE_SHEETS_EVENTS_RANGE: import.meta.env.VITE_GOOGLE_SHEETS_EVENTS_RANGE || '',
   
   // MyRealTrip APIs
   MRT_API_BASE: 'https://api3.myrealtrip.com',

@@ -109,6 +109,115 @@ function loadEventMetadata() {
 loadAttributeMetadata();
 loadEventMetadata();
 
+// 단일 자동완성 타입에 대한 데이터 가져오기
+async function getDataForSingleType(type: string, query: string, metadata: any): Promise<any[]> {
+  const normalizedQuery = query.toLowerCase().trim();
+  
+  switch(type) {
+    case 'AIRPORT':
+      return new Promise((resolve) => {
+        chrome.runtime.sendMessage(
+          { 
+            type: 'FETCH_AIRPORT_DATA',
+            payload: { query: normalizedQuery }
+          },
+          (response) => {
+            if (response && response.success) {
+              const results = response.data.map((item: any) => ({
+                attribute: metadata,
+                value: item,
+                display: item.label,
+                insertValue: item.value,
+                additionalInfo: item.additionalInfo
+              }));
+              resolve(results);
+            } else {
+              resolve([]);
+            }
+          }
+        );
+      });
+      
+    case 'CITY':
+    case 'COUNTRY':
+      return new Promise((resolve) => {
+        chrome.runtime.sendMessage(
+          { 
+            type: 'FETCH_REGION_DATA',
+            payload: { query: normalizedQuery, type }
+          },
+          (response) => {
+            if (response && response.success) {
+              const results = response.data.map((item: any) => ({
+                attribute: metadata,
+                value: item,
+                display: item.name,
+                insertValue: item.code,
+                additionalInfo: item.additionalInfo
+              }));
+              resolve(results);
+            } else {
+              resolve([]);
+            }
+          }
+        );
+      });
+      
+    case 'STANDARD_CATEGORY_LV_1':
+    case 'STANDARD_CATEGORY_LV_2':
+    case 'STANDARD_CATEGORY_LV_3':
+      return new Promise((resolve) => {
+        chrome.runtime.sendMessage(
+          { 
+            type: 'FETCH_CATEGORY_DATA',
+            payload: { query: normalizedQuery, type }
+          },
+          (response) => {
+            if (response && response.success) {
+              const results = response.data.map((item: any) => ({
+                attribute: metadata,
+                value: item,
+                display: item.label || item.name,
+                insertValue: item.value || item.code,
+                additionalInfo: item.additionalInfo
+              }));
+              resolve(results);
+            } else {
+              resolve([]);
+            }
+          }
+        );
+      });
+      
+    case 'AIRLINE':
+      return new Promise((resolve) => {
+        chrome.runtime.sendMessage(
+          { 
+            type: 'FETCH_AIRLINE_DATA',
+            payload: { query: normalizedQuery }
+          },
+          (response) => {
+            if (response && response.success) {
+              const results = response.data.map((item: any) => ({
+                attribute: metadata,
+                value: item,
+                display: item.name,
+                insertValue: item.code,
+                additionalInfo: ''
+              }));
+              resolve(results);
+            } else {
+              resolve([]);
+            }
+          }
+        );
+      });
+      
+    default:
+      return [];
+  }
+}
+
 // Custom Event 메타데이터 찾기
 function findEventMetadata(input: HTMLInputElement): any {
   // Custom Events 필터 컨테이너 찾기
@@ -193,6 +302,13 @@ function getCurrentAttributeMetadata(inputElement: HTMLInputElement): any {
     return null;
   }
   
+  // Custom Events 필터인지 확인
+  const customEventsSection = filterContainer.querySelector('.custom_events_filter');
+  if (customEventsSection) {
+    // Custom Events 처리
+    return findEventMetadata(inputElement);
+  }
+  
   // 해당 필터 컨테이너 내에서 속성명 찾기
   // Custom Attributes 레이블 다음의 select 박스에서 선택된 값 찾기
   const customAttributesSection = filterContainer.querySelector('.custom_attributes_filter');
@@ -269,6 +385,27 @@ async function searchValues(query: string, inputElement?: HTMLInputElement): Pro
     
     if (metadata) {
       console.log('Autocomplete type:', metadata.autocompleteType);
+      
+      // Custom Events의 복수 자동완성 타입 처리
+      if (metadata.allAutocompleteTypes && metadata.allAutocompleteTypes.length > 0) {
+        console.log('Multiple autocomplete types:', metadata.allAutocompleteTypes);
+        
+        // 모든 타입에서 검색 결과를 수집
+        const allResults = [];
+        
+        for (const type of metadata.allAutocompleteTypes) {
+          // 각 타입별로 데이터 가져오기
+          const typeResults = await getDataForSingleType(type, normalizedQuery, metadata);
+          allResults.push(...typeResults);
+        }
+        
+        // 중복 제거 (value 기준)
+        const uniqueResults = allResults.filter((item, index, self) => 
+          index === self.findIndex((t) => t.insertValue === item.insertValue)
+        );
+        
+        return uniqueResults;
+      }
     }
     
     // AIRPORT 타입이면 실시간 API 호출

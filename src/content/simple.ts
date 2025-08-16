@@ -230,26 +230,48 @@ function findEventMetadata(input: HTMLInputElement): any {
     // property 필드의 이름 찾기 (city_name 같은)
     // 입력 필드가 속한 가장 가까운 필터 템플릿 찾기
     const filterTemplate = input.closest('.filter-template');
-    const parentContainer = filterTemplate?.parentElement?.parentElement;
     let propertyName = '';
     
-    // 같은 필터 블록 내에서 property 선택 드롭다운 찾기
-    if (parentContainer) {
-      // select2로 렌더링된 property 이름 찾기 (같은 블록 내에서)
-      const propertyDropdown = parentContainer.querySelector('.select2-selection__rendered');
-      if (propertyDropdown) {
-        propertyName = propertyDropdown.textContent?.trim() || '';
-        console.log('같은 블록의 Property 텍스트:', propertyName);
+    // 필터 템플릿의 부모에서 property 드롭다운 찾기
+    if (filterTemplate) {
+      // 필터 템플릿의 부모 요소에서 property select 찾기
+      const parentWrapper = filterTemplate.closest('.selection-wrapper')?.parentElement;
+      
+      if (parentWrapper) {
+        // property select 요소 찾기 (comparison select는 제외)
+        const selects = parentWrapper.querySelectorAll('select');
+        for (const select of selects) {
+          const selectEl = select as HTMLSelectElement;
+          // comparison-keys 클래스가 없고, custom_event가 아닌 select
+          if (!selectEl.classList.contains('comparison-keys') && 
+              selectEl.name !== 'custom_event' &&
+              !selectEl.classList.contains('filter-selector')) {
+            // 선택된 옵션의 텍스트 가져오기
+            const selectedOption = selectEl.selectedOptions[0];
+            if (selectedOption) {
+              propertyName = selectedOption.textContent?.trim() || '';
+              console.log('Property select 찾음:', propertyName);
+              break;
+            }
+          }
+        }
       }
       
-      // select 요소에서도 찾기
-      if (!propertyName) {
-        const propertySelect = parentContainer.querySelector('select:not([name="custom_event"])');
-        if (propertySelect) {
-          const selectedOption = (propertySelect as HTMLSelectElement).selectedOptions[0];
-          if (selectedOption) {
-            propertyName = selectedOption.textContent?.trim() || '';
-            console.log('Select option 텍스트:', propertyName);
+      // select를 못 찾았으면 select2 렌더링된 텍스트에서 찾기
+      if (!propertyName && parentWrapper) {
+        const select2Containers = parentWrapper.querySelectorAll('.select2-selection__rendered');
+        for (const container of select2Containers) {
+          const text = container.textContent?.trim() || '';
+          // Basic Property, equals 등의 텍스트는 제외
+          if (text && 
+              text !== 'Basic Property' && 
+              text !== 'equals' && 
+              text !== 'does not equal' &&
+              !text.includes('matches') &&
+              !text.includes('blank')) {
+            propertyName = text;
+            console.log('Property 텍스트 찾음:', propertyName);
+            break;
           }
         }
       }

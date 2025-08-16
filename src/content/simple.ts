@@ -258,48 +258,53 @@ function findEventMetadata(input: HTMLInputElement): any {
     // property 이름으로 이벤트 메타데이터 찾기
     // city_name이 있는 이벤트를 찾기
     if (propertyName) {
-      console.log('Property 이름으로 이벤트 찾기:', propertyName);
+      console.log('Property 이름으로 자동완성 타입 결정:', propertyName);
       
-      // 모든 이벤트에서 해당 property를 가진 이벤트 찾기
-      for (const event of eventMetadata) {
-        // autocompleteTypes가 있고, CITY나 COUNTRY 등이 포함된 경우
-        if (event.autocompleteTypes && event.autocompleteTypes.length > 0) {
-          // property 이름이 일치하는지 확인 (예: city_name)
-          // 또는 이벤트의 자동완성 타입이 있는 경우
-          console.log(`이벤트 ${event.event} 확인 중, types:`, event.autocompleteTypes);
-          
-          // property 이름이 city와 관련있으면 CITY 타입 사용
-          if (propertyName.toLowerCase().includes('city')) {
-            if (event.autocompleteTypes.includes('CITY')) {
-              console.log('CITY 타입 이벤트 발견:', event);
-              return {
-                ...event,
-                autocompleteType: 'CITY',
-                allAutocompleteTypes: event.autocompleteTypes
-              };
-            }
-          }
-          // country와 관련있으면 COUNTRY 타입 사용
-          else if (propertyName.toLowerCase().includes('country')) {
-            if (event.autocompleteTypes.includes('COUNTRY')) {
-              console.log('COUNTRY 타입 이벤트 발견:', event);
-              return {
-                ...event,
-                autocompleteType: 'COUNTRY',
-                allAutocompleteTypes: event.autocompleteTypes
-              };
-            }
-          }
-          // 기본적으로 첫 번째 타입 사용
-          else if (event.autocompleteTypes.length > 0) {
-            console.log('기본 타입 사용:', event);
-            return {
-              ...event,
-              autocompleteType: event.autocompleteTypes[0],
-              allAutocompleteTypes: event.autocompleteTypes
-            };
-          }
+      // 먼저 현재 선택된 이벤트 찾기
+      const eventSelect = document.querySelector('.db-performed-custom-event-action select');
+      const eventName = eventSelect ? (eventSelect as HTMLSelectElement).value : 'add_wishlist';
+      console.log('현재 선택된 이벤트:', eventName);
+      
+      // 해당 이벤트의 메타데이터 찾기
+      const eventMeta = eventMetadata.find(e => e.event === eventName);
+      console.log('이벤트 메타데이터:', eventMeta);
+      
+      if (eventMeta && eventMeta.autocompleteTypes && eventMeta.autocompleteTypes.length > 0) {
+        // property 이름에 따라 적절한 타입 선택
+        let selectedType = '';
+        
+        // property 이름 기반 매칭
+        if (propertyName.toLowerCase().includes('city')) {
+          selectedType = 'CITY';
+        } else if (propertyName.toLowerCase().includes('country')) {
+          selectedType = 'COUNTRY';
+        } else if (propertyName.toLowerCase().includes('lv_1') || propertyName.toLowerCase().includes('category_1')) {
+          selectedType = 'STANDARD_CATEGORY_LV_1';
+        } else if (propertyName.toLowerCase().includes('lv_2') || propertyName.toLowerCase().includes('category_2')) {
+          selectedType = 'STANDARD_CATEGORY_LV_2';
+        } else if (propertyName.toLowerCase().includes('lv_3') || propertyName.toLowerCase().includes('category_3')) {
+          selectedType = 'STANDARD_CATEGORY_LV_3';
+        } else if (propertyName.toLowerCase().includes('airport')) {
+          selectedType = 'AIRPORT';
         }
+        
+        // 선택된 타입이 이벤트의 자동완성 타입에 포함되어 있는지 확인
+        if (selectedType && eventMeta.autocompleteTypes.includes(selectedType)) {
+          console.log(`${selectedType} 타입 사용 (${propertyName})`);
+          return {
+            ...eventMeta,
+            autocompleteType: selectedType,
+            allAutocompleteTypes: eventMeta.autocompleteTypes
+          };
+        }
+        
+        // 매칭되는 타입이 없으면 첫 번째 타입 사용
+        console.log('기본 타입 사용:', eventMeta.autocompleteTypes[0]);
+        return {
+          ...eventMeta,
+          autocompleteType: eventMeta.autocompleteTypes[0],
+          allAutocompleteTypes: eventMeta.autocompleteTypes
+        };
       }
     }
     

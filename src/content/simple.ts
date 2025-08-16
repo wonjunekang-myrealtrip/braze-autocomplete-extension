@@ -144,7 +144,7 @@ async function getDataForSingleType(type: string, query: string, metadata: any):
         chrome.runtime.sendMessage(
           { 
             type: 'FETCH_REGION_DATA',
-            payload: { query: normalizedQuery, type }
+            payload: { query: normalizedQuery, dataType: type }
           },
           (response) => {
             if (response && response.success) {
@@ -166,11 +166,13 @@ async function getDataForSingleType(type: string, query: string, metadata: any):
     case 'STANDARD_CATEGORY_LV_1':
     case 'STANDARD_CATEGORY_LV_2':
     case 'STANDARD_CATEGORY_LV_3':
+      const level = type === 'STANDARD_CATEGORY_LV_1' ? 1 : 
+                    type === 'STANDARD_CATEGORY_LV_2' ? 2 : 3;
       return new Promise((resolve) => {
         chrome.runtime.sendMessage(
           { 
             type: 'FETCH_CATEGORY_DATA',
-            payload: { query: normalizedQuery, type }
+            payload: { query: normalizedQuery, level }
           },
           (response) => {
             if (response && response.success) {

@@ -1242,7 +1242,11 @@ function detectInputFields() {
     '.custom_events_filter input[type="text"]:not(.bcl-select__input)',
     // Campaign Trigger의 Custom Event property 값 입력 필드
     '.db-performed-custom-event-action input[type="text"]:not(.select2-search__field)',
-    '.boolean-logic-composer input[type="text"]:not(.select2-search__field)'
+    '.boolean-logic-composer input[type="text"]:not(.select2-search__field)',
+    // 더 구체적인 선택자 추가
+    '.filter-template input[type="text"]',
+    '.disjunction-set input[type="text"]:not(.select2-search__field)',
+    'input.regex'  // regex 클래스를 가진 입력 필드
   ];
   
   selectors.forEach(selector => {
@@ -1268,17 +1272,23 @@ function detectInputFields() {
       }
       
       // Attribute value 입력 필드인지 최종 확인
+      // Campaign Trigger의 property 필드인지 확인
+      const isCampaignTriggerField = input.closest('.db-performed-custom-event-action') !== null ||
+                                     input.closest('.boolean-logic-composer') !== null;
+      
       const isAttributeValueField = input.closest('[data-cy="condition-group"]') ||
                                     input.closest('.filter-input-any') ||
                                     input.classList.contains('bcl-tag-input') ||
-                                    input.placeholder?.includes('경기');
+                                    input.placeholder?.includes('경기') ||
+                                    isCampaignTriggerField;
       
       if (!isAttributeValueField) {
         console.log('Attribute value 필드가 아님:', input);
         return;
       }
       
-      console.log('Attribute value 입력 필드 발견:', input);
+      console.log('Attribute/Event value 입력 필드 발견:', input);
+      console.log('Campaign Trigger 필드:', isCampaignTriggerField);
       input.setAttribute('data-braze-autocomplete', 'true');
       
       // 포커스 타이머 변수

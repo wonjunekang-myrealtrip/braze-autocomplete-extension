@@ -222,18 +222,32 @@ async function getDataForSingleType(type: string, query: string, metadata: any):
 function findEventMetadata(input: HTMLInputElement): any {
   // Campaign Trigger의 Custom Event 컨테이너 확인
   const triggerContainer = input.closest('.db-performed-custom-event-action');
-  if (triggerContainer) {
-    // Campaign Trigger에서 선택된 이벤트 찾기
-    const selectedEvent = triggerContainer.querySelector('.select2-selection__rendered');
-    let eventName = selectedEvent?.textContent?.trim();
+  const booleanLogicContainer = input.closest('.boolean-logic-composer');
+  
+  if (triggerContainer || booleanLogicContainer) {
+    console.log('Campaign Trigger 컨테이너 발견');
     
-    // 한글명이 포함된 경우 이벤트명만 추출
-    if (eventName && eventName.includes('(')) {
-      eventName = eventName.split('(')[0].trim();
+    // 먼저 select 요소에서 선택된 값 찾기 (더 정확함)
+    const selectElement = document.querySelector('select[name="custom_event"]') as HTMLSelectElement;
+    let eventName = selectElement?.value;
+    
+    // select 요소가 없으면 select2 렌더링된 텍스트에서 찾기
+    if (!eventName) {
+      const selectedEvent = (triggerContainer || booleanLogicContainer)?.querySelector('.select2-selection__rendered');
+      eventName = selectedEvent?.textContent?.trim();
+      console.log('select2 렌더링된 이벤트명:', eventName);
+      
+      // 한글명이 포함된 경우 이벤트명만 추출
+      if (eventName && eventName.includes('(')) {
+        eventName = eventName.split('(')[0].trim();
+      }
     }
+    
+    console.log('최종 Campaign Trigger 이벤트명:', eventName);
     
     if (eventName) {
       const metadata = eventMetadata.find(e => e.event === eventName);
+      console.log('찾은 이벤트 메타데이터:', metadata);
       if (metadata) {
         // 복수의 자동완성 타입을 처리
         if (metadata.autocompleteTypes && metadata.autocompleteTypes.length > 0) {
@@ -246,11 +260,15 @@ function findEventMetadata(input: HTMLInputElement): any {
         return metadata;
       }
     }
+    return null; // Campaign Trigger에서 메타데이터를 찾지 못한 경우
   }
   
   // Custom Events 필터 컨테이너 찾기
   const filterContainer = input.closest('.custom_events_filter');
-  if (!filterContainer) return null;
+  if (!filterContainer) {
+    console.log('Filter container not found');
+    return null;
+  }
   
   // 선택된 이벤트 이름 찾기
   const selectedEvent = filterContainer.querySelector('.bcl-select__single-value');
@@ -325,15 +343,20 @@ let currentResults: any[] = []; // 현재 표시된 검색 결과 저장
 function getCurrentAttributeMetadata(inputElement: HTMLInputElement): any {
   // Campaign Trigger의 Custom Event property인지 확인
   const triggerContainer = inputElement.closest('.db-performed-custom-event-action');
-  if (triggerContainer) {
+  const booleanLogicContainer = inputElement.closest('.boolean-logic-composer');
+  
+  if (triggerContainer || booleanLogicContainer) {
+    console.log('Campaign Trigger/Boolean Logic 컨테이너 발견');
     // Campaign Trigger Events 처리
-    return findEventMetadata(inputElement);
+    const eventMetadataResult = findEventMetadata(inputElement);
+    console.log('Event metadata 결과:', eventMetadataResult);
+    return eventMetadataResult;
   }
   
   // 입력 필드가 속한 필터 컨테이너 찾기
   const filterContainer = inputElement.closest('.segment-filter-container');
   if (!filterContainer) {
-    console.log('Filter container not found');
+    console.log('Filter container not found - Campaign Trigger나 Segment가 아님');
     return null;
   }
   

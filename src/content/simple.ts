@@ -1042,6 +1042,11 @@ function insertValue(value: string) {
   setTimeout(() => {
     inputElement.removeAttribute('data-programmatic-change');
     removeDropdown();
+    // 드롭다운이 다시 나타나지 않도록 플래그 설정
+    inputElement.setAttribute('data-dropdown-closed', 'true');
+    setTimeout(() => {
+      inputElement.removeAttribute('data-dropdown-closed');
+    }, 500);
   }, 100);
 }
 
@@ -1056,6 +1061,33 @@ function displaySelectedValueName(inputElement: HTMLInputElement, value: string)
   // 현재 속성의 메타데이터 확인
   const metadata = getCurrentAttributeMetadata(inputElement);
   if (!metadata) return;
+  
+  // 복수 타입이 있는 경우 (Campaign Trigger Custom Events)
+  if (metadata.allAutocompleteTypes && metadata.allAutocompleteTypes.length > 0) {
+    // 카테고리 타입 확인
+    if (value.startsWith('Package_') || value.startsWith('Tour_') || value.startsWith('Activity_')) {
+      // 카테고리 레벨 결정
+      let level = 1;
+      if (metadata.autocompleteType === 'STANDARD_CATEGORY_LV_2') level = 2;
+      else if (metadata.autocompleteType === 'STANDARD_CATEGORY_LV_3') level = 3;
+      
+      chrome.runtime.sendMessage(
+        { 
+          type: 'FETCH_CATEGORY_DATA',
+          payload: { query: value, level }
+        },
+        (response) => {
+          if (response && response.success && response.data.length > 0) {
+            const category = response.data.find((item: any) => item.code === value || item.value === value);
+            if (category) {
+              showNameDisplay(inputElement, category.name, value);
+            }
+          }
+        }
+      );
+      return;
+    }
+  }
   
   let displayName = '';
   
@@ -1420,10 +1452,26 @@ function detectInputFields() {
       
       // 포커스 타이머 변수
       let focusTimer: any = null;
+      let lastClickTime = 0;
       
       // 포커스 이벤트 - 값이 있으면 자동완성 표시, ENUM 타입일 때 전체 옵션 표시
       const handleFocusAndClick = async (e: Event) => {
         const target = e.target as HTMLInputElement;
+        
+        // 클릭 이벤트인 경우 너무 빈번한 호출 방지
+        if (e.type === 'click') {
+          const now = Date.now();
+          if (now - lastClickTime < 300) {  // 300ms 이내 재클릭 무시
+            return;
+          }
+          lastClickTime = now;
+          
+          // 이미 드롭다운이 열려있으면 토글 (닫기)
+          if (currentDropdown && currentInput === target) {
+            removeDropdown();
+            return;
+          }
+        }
         
         // 이전 포커스 타이머 취소
         if (focusTimer) {
@@ -1438,8 +1486,8 @@ function detectInputFields() {
           return;
         }
         
-        // 이미 드롭다운이 열려있으면 무시
-        if (currentDropdown && currentInput === target) {
+        // 포커스 이벤트에서만 체크 (클릭은 위에서 처리)
+        if (e.type === 'focus' && currentDropdown && currentInput === target) {
           return;
         }
         
@@ -1534,6 +1582,11 @@ function detectInputFields() {
         if (target.hasAttribute('data-programmatic-change')) {
           console.log('Programmatic change detected, skipping dropdown');
           removeDropdown();
+          return;
+        }
+        
+        // 드롭다운이 방금 닫혔으면 다시 열지 않음
+        if (target.hasAttribute('data-dropdown-closed')) {
           return;
         }
         

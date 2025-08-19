@@ -61,6 +61,11 @@ class BrazeAutocompleteManager {
     
     // 새로운 리스너 추가
     this.addInputListeners(inputElement);
+    
+    // 태그 입력 필드인 경우 MutationObserver 설정
+    if (inputElement.classList.contains('bcl-tag-input')) {
+      this.setupTagObserver(inputElement);
+    }
   }
 
   // 입력 리스너 추가
@@ -74,6 +79,35 @@ class BrazeAutocompleteManager {
     // 입력 이벤트
     inputElement.addEventListener('input', inputHandler);
     
+    // 태그 입력 필드인 경우 Enter/Tab 키 차단
+    if (inputElement.classList.contains('bcl-tag-input')) {
+      const keyHandler = (event: KeyboardEvent) => {
+        // 자동완성이 열려있을 때 Enter/Tab 키 차단
+        const dropdown = this.activeDropdowns.get(inputElement);
+        if (dropdown) {
+          if (event.key === 'Enter' || event.key === 'Tab') {
+            // 검색어가 입력된 상태에서 Enter/Tab 차단
+            const value = inputElement.value.trim();
+            if (value && this.isSearchQuery(value)) {
+              event.preventDefault();
+              event.stopPropagation();
+              event.stopImmediatePropagation();
+              console.log('태그 생성 차단:', value);
+              
+              // 입력 필드 비우기
+              inputElement.value = '';
+              inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+              return false;
+            }
+          }
+        }
+      };
+      
+      // Capture phase에서 키 이벤트 처리 (Braze보다 먼저)
+      inputElement.addEventListener('keydown', keyHandler, true);
+      inputElement.addEventListener('keypress', keyHandler, true);
+    }
+    
     // 포커스 이벤트
     inputElement.addEventListener('focus', (event) => {
       console.log('포커스 이벤트 발생');
@@ -84,11 +118,56 @@ class BrazeAutocompleteManager {
     });
 
     // 블러 이벤트 (지연 후 숨김 - 클릭 이벤트 처리를 위해)
-    inputElement.addEventListener('blur', () => {
+    let isSelectingFromDropdown = false;
+    
+    // Capture phase에서 blur 이벤트 처리 (Braze보다 먼저 실행)
+    const blurHandler = (event: FocusEvent) => {
+      // 드롭다운 선택 중이면 blur 이벤트 완전 차단
+      if (isSelectingFromDropdown) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        
+        // 입력 필드가 비어있지 않으면 비우기
+        if (inputElement.value) {
+          inputElement.value = '';
+          inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        
+        // 포커스 다시 주기
+        setTimeout(() => {
+          inputElement.focus();
+        }, 1);
+        return;
+      }
+      
+      // 자동완성 드롭다운 클릭으로 인한 blur는 무시
+      const relatedTarget = event.relatedTarget as HTMLElement;
+      const dropdown = this.activeDropdowns.get(inputElement);
+      
+      if (dropdown && dropdown.container.contains(relatedTarget)) {
+        // 드롭다운 내부로 포커스가 이동한 경우 무시
+        return;
+      }
+      
       setTimeout(() => {
+        // 입력 필드가 비어있지 않으면 자동완성 숨기지 않음
+        if (inputElement === document.activeElement) {
+          return;
+        }
+        
+        // 자동완성 숨기기
         this.hideAutocomplete(inputElement);
       }, 200);
-    });
+    };
+    
+    // Capture phase에서 리스너 등록 (Braze보다 먼저 실행되도록)
+    inputElement.addEventListener('blur', blurHandler, true);
+    
+    // 드롭다운 선택 상태 설정 함수를 데이터 속성으로 저장
+    (inputElement as any).__setSelecting = (selecting: boolean) => {
+      isSelectingFromDropdown = selecting;
+    };
 
     // 데이터 속성으로 리스너 추가됨을 표시
     inputElement.setAttribute('data-braze-autocomplete', 'enabled');
@@ -107,9 +186,25 @@ class BrazeAutocompleteManager {
   // 입력 처리
   private handleInput(event: InputEvent) {
     const inputElement = event.target as HTMLInputElement;
-    const query = inputElement.value.trim();
+    const fullValue = inputElement.value;
     
-    console.log('handleInput - 입력값:', query, '길이:', query.length);
+    // 태그 입력 필드인 경우 그대로 사용 (이미 태그가 분리되어 있음)
+    const isTagInput = inputElement.classList.contains('bcl-tag-input');
+    
+    let query = fullValue.trim();
+    
+    if (!isTagInput) {
+      // 일반 입력 필드: 콤마로 구분된 복수 값 입력 처리
+      // 마지막 콤마 이후의 텍스트를 검색어로 사용
+      const lastCommaIndex = fullValue.lastIndexOf(',');
+      
+      if (lastCommaIndex !== -1) {
+        // 콤마 이후의 텍스트만 검색어로 사용
+        query = fullValue.substring(lastCommaIndex + 1).trim();
+      }
+    }
+    
+    console.log('handleInput - 입력값:', query, '길이:', query.length, '태그입력:', isTagInput);
     
     if (query.length >= AUTOCOMPLETE_CONFIG.MIN_QUERY_LENGTH) {
       console.log('자동완성 표시 시도');
@@ -304,21 +399,155 @@ class BrazeAutocompleteManager {
     attribute: AttributeMetadata, 
     value?: string
   ) {
-    // 값 삽입
+    console.log('속성 선택 시작:', attribute.attribute_name, value, '현재 입력값:', inputElement.value);
+    
+    // 태그 입력 필드인 경우 pendingTagValue 설정
+    if (inputElement.classList.contains('bcl-tag-input') && value) {
+      this.pendingTagValue = value;
+      console.log('대기 중인 태그 값 설정:', value);
+    }
+    
+    // 값 삽입 (이미 AutocompleteUI에서 입력 필드를 비웠음)
     this.domHandler.insertValue(inputElement, attribute.attribute_name, value);
     
     // 자동완성 숨기기
     this.hideAutocomplete(inputElement);
     
-    console.log('속성 선택됨:', attribute.attribute_name, value);
+    console.log('속성 선택 완료');
   }
 
+  // 태그 컨테이너 감시 설정
+  private tagObservers = new Map<HTMLElement, MutationObserver>();
+  private pendingTagValue: string | null = null;
+  
+  private setupTagObserver(inputElement: HTMLInputElement) {
+    // 태그 컨테이너 찾기
+    const tagContainer = inputElement.closest('.bcl-tag-input-container');
+    if (!tagContainer) return;
+    
+    // 기존 observer가 있으면 제거
+    const existingObserver = this.tagObservers.get(tagContainer);
+    if (existingObserver) {
+      existingObserver.disconnect();
+    }
+    
+    // 이미 존재하는 잘못된 태그들 제거
+    const existingTags = tagContainer.querySelectorAll('.bcl-tag');
+    existingTags.forEach(tag => {
+      const tagContent = tag.querySelector('.bcl-tag-content');
+      if (tagContent) {
+        const tagText = tagContent.textContent?.trim() || '';
+        if (this.isSearchQuery(tagText)) {
+          console.log('기존 잘못된 태그 발견:', tagText);
+          const closeButton = tag.querySelector('.bcl-close-button') as HTMLButtonElement;
+          if (closeButton) {
+            setTimeout(() => {
+              closeButton.click();
+              console.log('기존 잘못된 태그 제거:', tagText);
+            }, 100);
+          }
+        }
+      }
+    });
+    
+    // 새 MutationObserver 생성
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach(mutation => {
+        mutation.addedNodes.forEach(node => {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            const element = node as HTMLElement;
+            
+            // 태그가 추가되었는지 확인
+            if (element.classList && element.classList.contains('bcl-tag')) {
+              const tagContent = element.querySelector('.bcl-tag-content');
+              if (tagContent) {
+                const tagText = tagContent.textContent?.trim() || '';
+                
+                // 한글 자음/모음만 있거나 1-2글자의 검색어인 경우
+                if (this.isSearchQuery(tagText)) {
+                  console.log('잘못된 태그 감지:', tagText);
+                  
+                  // 잘못된 태그 즉시 제거
+                  setTimeout(() => {
+                    const closeButton = element.querySelector('.bcl-close-button') as HTMLButtonElement;
+                    if (closeButton) {
+                      closeButton.click();
+                      console.log('잘못된 태그 제거:', tagText);
+                    }
+                  }, 10);
+                  
+                  // 올바른 값이 대기 중이면 입력
+                  if (this.pendingTagValue) {
+                    setTimeout(() => {
+                      if (inputElement && this.pendingTagValue) {
+                        inputElement.value = this.pendingTagValue;
+                        inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+                        
+                        // Enter 키로 태그 생성
+                        const enterEvent = new KeyboardEvent('keydown', {
+                          key: 'Enter',
+                          code: 'Enter',
+                          keyCode: 13,
+                          which: 13,
+                          bubbles: true
+                        });
+                        inputElement.dispatchEvent(enterEvent);
+                        
+                        this.pendingTagValue = null;
+                      }
+                    }, 100);
+                  }
+                }
+              }
+            }
+          }
+        });
+      });
+    });
+    
+    // 태그 컨테이너 감시 시작
+    observer.observe(tagContainer, {
+      childList: true,
+      subtree: true
+    });
+    
+    this.tagObservers.set(tagContainer, observer);
+    console.log('태그 컨테이너 감시 시작');
+  }
+  
+  // 검색어인지 판별
+  private isSearchQuery(text: string): boolean {
+    // 한글 자음/모음만 있는 경우
+    const consonantVowelOnly = /^[ㄱ-ㅎㅏ-ㅣ]+$/;
+    if (consonantVowelOnly.test(text)) return true;
+    
+    // 1-2글자의 짧은 텍스트 (도시명이 아닌 경우)
+    if (text.length <= 2 && !this.isValidCityName(text)) {
+      return true;
+    }
+    
+    return false;
+  }
+  
+  // 유효한 도시명인지 확인
+  private isValidCityName(text: string): boolean {
+    // 실제 도시명 목록과 비교 (예시)
+    const validCities = ['LA', 'NY', 'SF', '서울', '부산', '대구', '인천', '광주', '대전', '울산'];
+    return validCities.includes(text);
+  }
+  
   // 정리
   private cleanup() {
     // 모든 활성 드롭다운 제거
     this.activeDropdowns.forEach((dropdown, inputElement) => {
       this.hideAutocomplete(inputElement);
     });
+    
+    // 모든 MutationObserver 제거
+    this.tagObservers.forEach(observer => {
+      observer.disconnect();
+    });
+    this.tagObservers.clear();
     
     // DOM 핸들러 정리
     this.domHandler.destroy();

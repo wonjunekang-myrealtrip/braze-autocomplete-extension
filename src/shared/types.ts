@@ -63,3 +63,55 @@ export interface AutocompleteCache {
   productData?: CacheData<any[]>;
   categoryData?: CacheData<any[]>;
 }
+
+// 이미지 관련 타입 정의
+export interface ImageData {
+  id: string;
+  url: string;
+  thumbnailUrl?: string;
+  note?: string;
+  uploadedAt: number;
+  fileName: string;
+  fileSize?: number;
+  mimeType?: string;
+}
+
+export interface ImageUploadRequest {
+  file: File;
+  note?: string;
+}
+
+export interface ImageUploadResponse {
+  success: boolean;
+  data?: {
+    url: string;
+    thumbnailUrl?: string;
+    imageSeq?: number;
+    imageName?: string;
+  };
+  error?: string;
+}
+
+// NHN Cloud 이미지 목록 페이징 응답
+export interface PagedImageList {
+  images: ImageData[];
+  totalCount: number;
+  pageNum: number;
+  pageSize: number;
+}
+
+// Extension 메시지 타입
+export type ExtensionMessageType = 
+  | 'GET_ATTRIBUTES'
+  | 'SYNC_DATA'
+  | 'CLEAR_CACHE'
+  | 'GET_IMAGES'
+  | 'GET_IMAGES_PAGED'
+  | 'UPLOAD_IMAGE'
+  | 'DELETE_IMAGE'
+  | 'UPDATE_IMAGE_NOTE';
+
+export interface ExtensionMessage {
+  type: ExtensionMessageType;
+  payload?: any;
+}

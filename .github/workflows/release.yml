@@ -26,9 +26,13 @@ jobs:
     
     - name: Build extension
       env:
-        GOOGLE_SHEETS_API_KEY: ${{ secrets.GOOGLE_SHEETS_API_KEY }}
-        GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
-        GOOGLE_SHEETS_RANGE: ${{ secrets.GOOGLE_SHEETS_RANGE }}
+        VITE_GOOGLE_SHEETS_API_KEY: ${{ secrets.GOOGLE_SHEETS_API_KEY }}
+        VITE_GOOGLE_SHEETS_ID: ${{ secrets.GOOGLE_SHEETS_ID }}
+        VITE_GOOGLE_SHEETS_RANGE: ${{ secrets.GOOGLE_SHEETS_RANGE }}
+        VITE_GOOGLE_SHEETS_EVENTS_RANGE: ${{ secrets.GOOGLE_SHEETS_EVENTS_RANGE }}
+        VITE_NHN_CLOUD_URL: ${{ secrets.NHN_CLOUD_URL }}
+        VITE_NHN_CLOUD_APP_KEY: ${{ secrets.NHN_CLOUD_APP_KEY }}
+        VITE_NHN_CLOUD_SECRET_KEY: ${{ secrets.NHN_CLOUD_SECRET_KEY }}
       run: npm run build
     
     - name: Create ZIP file

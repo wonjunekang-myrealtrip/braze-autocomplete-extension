@@ -46,8 +46,25 @@ export const AutocompleteUI: React.FC<AutocompleteUIProps> = ({
   // 입력 필드 값 변화 감지
   useEffect(() => {
     const handleInput = () => {
-      const value = inputElement.value;
-      setQuery(value);
+      const fullValue = inputElement.value;
+      
+      // 태그 입력 필드인 경우 그대로 사용
+      const isTagInput = inputElement.classList.contains('bcl-tag-input');
+      
+      let searchQuery = fullValue;
+      
+      if (!isTagInput) {
+        // 일반 입력 필드: 콤마로 구분된 복수 값 입력 처리
+        // 마지막 콤마 이후의 텍스트를 검색어로 사용
+        const lastCommaIndex = fullValue.lastIndexOf(',');
+        
+        if (lastCommaIndex !== -1) {
+          // 콤마 이후의 텍스트만 검색어로 사용
+          searchQuery = fullValue.substring(lastCommaIndex + 1).trim();
+        }
+      }
+      
+      setQuery(searchQuery.trim());
       setSelectedIndex(0);
       setShowValueSuggestions(false);
       setSelectedAttribute(null);
@@ -63,23 +80,68 @@ export const AutocompleteUI: React.FC<AutocompleteUIProps> = ({
       if (showValueSuggestions && selectedAttribute) {
         handleValueKeyNavigation(event);
       } else if (searchResults.length > 0) {
-        handleKeyNavigation(
-          event,
-          selectedIndex,
-          searchResults.length,
-          setSelectedIndex,
-          () => handleAttributeSelect(searchResults[selectedIndex]?.attribute),
-          onClose
-        );
+        // Enter 키를 눌렀을 때만 선택 처리
+        if (event.key === 'Enter' && searchResults[selectedIndex]) {
+          event.preventDefault();
+          event.stopPropagation();
+          handleAttributeSelect(searchResults[selectedIndex].attribute);
+        } else {
+          // 다른 키는 기존 네비게이션 처리
+          handleKeyNavigation(
+            event,
+            selectedIndex,
+            searchResults.length,
+            setSelectedIndex,
+            () => {}, // Enter 처리를 위에서 하므로 여기선 빈 함수
+            onClose
+          );
+        }
       }
     };
 
-    inputElement.addEventListener('keydown', handleKeyDown);
-    return () => inputElement.removeEventListener('keydown', handleKeyDown);
+    inputElement.addEventListener('keydown', handleKeyDown, true); // capture phase 사용
+    return () => inputElement.removeEventListener('keydown', handleKeyDown, true);
   }, [inputElement, selectedIndex, searchResults, showValueSuggestions, selectedAttribute]);
 
   // 속성 선택 처리
   const handleAttributeSelect = (attribute: AttributeMetadata) => {
+    // 입력 필드에 값이 있으면 즉시 제거 (태그 생성 방지)
+    if (inputElement.value) {
+      // 포커스 유지하면서 값만 제거
+      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+        HTMLInputElement.prototype,
+        'value'
+      )?.set;
+      
+      if (nativeInputValueSetter) {
+        nativeInputValueSetter.call(inputElement, '');
+      } else {
+        inputElement.value = '';
+      }
+      
+      // React 상태 업데이트
+      inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+      
+      // 포커스 유지 (blur 방지)
+      inputElement.focus();
+    }
+    
+    // 검색어가 도시명이나 값에 매칭되는 경우 바로 그 값을 입력
+    if (attribute.possible_values.length > 0 && query.length > 0) {
+      const matchedValue = attribute.possible_values.find(v => 
+        v.key_name.toLowerCase().includes(query.toLowerCase()) ||
+        v.key_kor_name.toLowerCase().includes(query.toLowerCase())
+      );
+      
+      if (matchedValue) {
+        // 약간의 지연 후 값 입력 (blur 이벤트 처리 후)
+        setTimeout(() => {
+          onSelect(attribute, matchedValue.key_name);
+        }, 50);
+        return;
+      }
+    }
+    
     setSelectedAttribute(attribute);
     
     // Boolean 타입이거나 possible_values가 있는 경우 값 제안 표시
@@ -87,13 +149,21 @@ export const AutocompleteUI: React.FC<AutocompleteUIProps> = ({
       setShowValueSuggestions(true);
     } else {
       // 그 외의 경우 바로 속성명 입력
-      onSelect(attribute);
+      setTimeout(() => {
+        onSelect(attribute);
+      }, 50);
     }
   };
 
   // 값 선택 처리
   const handleValueSelect = (value: MultilingualValue) => {
     if (selectedAttribute) {
+      // 입력 필드를 먼저 비워서 검색어가 태그로 변환되는 것을 방지
+      if (inputElement.value) {
+        inputElement.value = '';
+        inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      
       // 직접 입력인 경우 처리
       if (value.key_name === 'custom') {
         onSelect(selectedAttribute);
@@ -162,13 +232,68 @@ export const AutocompleteUI: React.FC<AutocompleteUIProps> = ({
           <div className="px-3 py-2 bg-gray-50 border-b text-xs font-semibold text-gray-700">
             {selectedAttribute.attribute_name} 값 선택
           </div>
-          {getValueSuggestions(selectedAttribute).map((value, index) => (
+                        {getValueSuggestions(selectedAttribute).map((value, index) => (
             <div
               key={value.key_name}
               className={`braze-value-item ${index === selectedIndex ? 'selected' : ''} ${
                 value.key_name === 'custom' ? 'braze-value-item-custom' : ''
               }`}
-              onClick={() => handleValueSelect(value)}
+              onMouseDown={(e) => {
+                e.preventDefault(); // 포커스 이동 방지
+                e.stopPropagation(); // 이벤트 전파 방지
+                e.stopImmediatePropagation(); // 모든 이벤트 전파 중지
+                
+                // 드롭다운 선택 중임을 표시
+                if ((inputElement as any).__setSelecting) {
+                  (inputElement as any).__setSelecting(true);
+                }
+                
+                // Braze의 모든 이벤트 리스너 일시 제거
+                const originalListeners = {
+                  blur: inputElement.onblur,
+                  change: inputElement.onchange,
+                  keydown: inputElement.onkeydown
+                };
+                
+                // 이벤트 리스너 제거
+                inputElement.onblur = null;
+                inputElement.onchange = null;
+                inputElement.onkeydown = null;
+                
+                // 입력 필드 값 제거
+                const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+                  HTMLInputElement.prototype,
+                  'value'
+                )?.set;
+                
+                inputElement.value = '';
+                if (nativeInputValueSetter) {
+                  nativeInputValueSetter.call(inputElement, '');
+                }
+                
+                // React 상태 업데이트
+                inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+                
+                // 포커스 유지
+                inputElement.focus();
+                
+                // 값 선택 처리 (지연 실행)
+                setTimeout(() => {
+                  handleValueSelect(value);
+                  
+                  // 리스너 복원
+                  setTimeout(() => {
+                    inputElement.onblur = originalListeners.blur;
+                    inputElement.onchange = originalListeners.change;
+                    inputElement.onkeydown = originalListeners.keydown;
+                    
+                    // 선택 완료 표시
+                    if ((inputElement as any).__setSelecting) {
+                      (inputElement as any).__setSelecting(false);
+                    }
+                  }, 100);
+                }, 10);
+              }}
               onMouseEnter={() => setSelectedIndex(index)}
             >
               {value.key_name === 'custom' ? value.key_kor_name : `${value.key_kor_name} (${value.key_name})`}
@@ -189,7 +314,67 @@ export const AutocompleteUI: React.FC<AutocompleteUIProps> = ({
                   <div
                     key={result.attribute.attribute_name}
                     className={`braze-autocomplete-item ${isSelected ? 'selected' : ''}`}
-                    onClick={() => handleAttributeSelect(result.attribute)}
+                    onMouseDown={(e) => {
+                      e.preventDefault(); // 포커스 이동 및 기본 동작 방지
+                      e.stopPropagation();
+                      e.stopImmediatePropagation(); // 모든 이벤트 전파 중지
+                      
+                      // 드롭다운 선택 중임을 표시
+                      if ((inputElement as any).__setSelecting) {
+                        (inputElement as any).__setSelecting(true);
+                      }
+                      
+                      // 현재 입력값 백업 후 즉시 제거
+                      const currentValue = inputElement.value;
+                      console.log('드롭다운 클릭 - 현재값:', currentValue);
+                      
+                      // Braze의 모든 이벤트 리스너 일시 제거
+                      const originalListeners = {
+                        blur: inputElement.onblur,
+                        change: inputElement.onchange,
+                        keydown: inputElement.onkeydown
+                      };
+                      
+                      // 이벤트 리스너 제거
+                      inputElement.onblur = null;
+                      inputElement.onchange = null;
+                      inputElement.onkeydown = null;
+                      
+                      // 입력 필드 값을 즉시 비우기
+                      const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+                        HTMLInputElement.prototype,
+                        'value'
+                      )?.set;
+                      
+                      inputElement.value = '';
+                      if (nativeInputValueSetter) {
+                        nativeInputValueSetter.call(inputElement, '');
+                      }
+                      
+                      // input 이벤트 발생 (React 상태 동기화)
+                      const inputEvent = new Event('input', { bubbles: true });
+                      inputElement.dispatchEvent(inputEvent);
+                      
+                      // 포커스 유지
+                      inputElement.focus();
+                      
+                      // 선택 처리 후 리스너 복원
+                      setTimeout(() => {
+                        handleAttributeSelect(result.attribute);
+                        
+                        // 리스너 복원
+                        setTimeout(() => {
+                          inputElement.onblur = originalListeners.blur;
+                          inputElement.onchange = originalListeners.change;
+                          inputElement.onkeydown = originalListeners.keydown;
+                          
+                          // 선택 완료 표시
+                          if ((inputElement as any).__setSelecting) {
+                            (inputElement as any).__setSelecting(false);
+                          }
+                        }, 100);
+                      }, 10);
+                    }}
                     onMouseEnter={() => setSelectedIndex(globalIndex)}
                   >
                     <div className="braze-autocomplete-item-header">

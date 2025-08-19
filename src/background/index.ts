@@ -1,7 +1,8 @@
-import { AttributeMetadata, EventMetadata, ExtensionMessage, CacheData } from '@/shared/types';
+import { AttributeMetadata, EventMetadata, ExtensionMessage, CacheData, ImageData } from '@/shared/types';
 import { mockAttributes } from '@/shared/mockData';
 import { CACHE_KEYS, CACHE_TTL } from '@/shared/constants';
 import { AutocompleteAPIService } from '@/services/autocompleteAPIService';
+import { ImageService } from '@/services/imageService';
 import { getGoogleSheetsUrl, getGoogleSheetsEventsUrl } from '@/config/config';
 
 // Service Worker 환경 확인
@@ -21,7 +22,9 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id) {
   // Service Worker 시작 시 데이터 로드
   self.addEventListener('activate', (event) => {
     console.log('Service Worker 활성화됨');
-    event.waitUntil(loadInitialData(false));
+    if (event instanceof ExtendableEvent) {
+      event.waitUntil(loadInitialData(false));
+    }
   });
 } else {
   console.warn('Chrome API not fully available - running in limited mode');
@@ -256,6 +259,25 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage)
         
       case 'CLEAR_CACHE':
         handleClearCache(sendResponse);
+        return true;
+        
+      case 'GET_IMAGES':
+        handleGetImages(sendResponse);
+        return true;
+      case 'GET_IMAGES_PAGED':
+        handleGetImagesPaged(message.payload, sendResponse);
+        return true;
+        
+      case 'UPLOAD_IMAGE':
+        handleUploadImage(message.payload, sendResponse);
+        return true;
+        
+      case 'DELETE_IMAGE':
+        handleDeleteImage(message.payload, sendResponse);
+        return true;
+        
+      case 'UPDATE_IMAGE_NOTE':
+        handleUpdateImageNote(message.payload, sendResponse);
         return true;
         
       default:
@@ -547,6 +569,131 @@ async function handleClearCache(sendResponse: (response: any) => void) {
     sendResponse({ 
       success: false, 
       error: '캐시 클리어 중 오류가 발생했습니다.' 
+    });
+  }
+}
+
+// 이미지 목록 조회
+async function handleGetImages(sendResponse: (response: any) => void) {
+  try {
+    const images = await ImageService.getImages();
+    sendResponse({ 
+      success: true, 
+      data: images 
+    });
+  } catch (error) {
+    console.error('이미지 목록 조회 실패:', error);
+    sendResponse({ 
+      success: false, 
+      error: '이미지 목록을 불러올 수 없습니다.' 
+    });
+  }
+}
+
+// NHN 이미지 목록 페이징 조회
+async function handleGetImagesPaged(
+  payload: { pageNum?: number; pageSize?: number; imageTypes?: string[] },
+  sendResponse: (response: any) => void
+) {
+  try {
+    const pageNum = payload?.pageNum ?? 1;
+    const pageSize = payload?.pageSize ?? 15;
+    const imageTypes = (payload?.imageTypes as any) ?? ['IMAGE', 'WIDE_IMAGE'];
+
+    const page = await ImageService.fetchRemoteImages(pageNum, pageSize, imageTypes as any);
+    sendResponse({ success: true, data: page });
+  } catch (error: any) {
+    console.error('NHN 이미지 페이징 조회 실패:', error);
+    sendResponse({ success: false, error: error?.message || '이미지 조회 실패' });
+  }
+}
+
+// 이미지 업로드
+async function handleUploadImage(
+  payload: { file: { name: string; type: string; size: number; data: string }; isWide?: boolean },
+  sendResponse: (response: any) => void
+) {
+  try {
+    // Base64를 Blob으로 변환
+    const base64Data = payload.file.data.split(',')[1];
+    const byteCharacters = atob(base64Data);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: payload.file.type });
+    const file = new File([blob], payload.file.name, { type: payload.file.type });
+    
+    const uploadResult = await ImageService.uploadImage(file, payload.isWide || false);
+    
+    if (uploadResult.success && uploadResult.data) {
+      // 이미지 데이터 생성 (NHN Cloud에서 반환된 정보 사용)
+      const imageData: ImageData = {
+        id: uploadResult.data.imageSeq?.toString() || Date.now().toString(),
+        url: uploadResult.data.url,
+        thumbnailUrl: uploadResult.data.thumbnailUrl,
+        uploadedAt: Date.now(),
+        fileName: uploadResult.data.imageName || payload.file.name,
+        fileSize: payload.file.size,
+        mimeType: payload.file.type
+      };
+      
+      sendResponse({ 
+        success: true, 
+        data: imageData 
+      });
+    } else {
+      sendResponse({ 
+        success: false, 
+        error: uploadResult.error || '업로드에 실패했습니다.' 
+      });
+    }
+  } catch (error) {
+    console.error('이미지 업로드 실패:', error);
+    sendResponse({ 
+      success: false, 
+      error: '이미지 업로드 중 오류가 발생했습니다.' 
+    });
+  }
+}
+
+// 이미지 삭제
+async function handleDeleteImage(
+  payload: { id: string },
+  sendResponse: (response: any) => void
+) {
+  try {
+    const result = await ImageService.deleteImage(payload.id);
+    sendResponse({ 
+      success: result, 
+      message: result ? '이미지가 삭제되었습니다.' : '삭제에 실패했습니다.' 
+    });
+  } catch (error) {
+    console.error('이미지 삭제 실패:', error);
+    sendResponse({ 
+      success: false, 
+      error: '이미지 삭제 중 오류가 발생했습니다.' 
+    });
+  }
+}
+
+// 이미지 노트 업데이트
+async function handleUpdateImageNote(
+  payload: { id: string; note: string },
+  sendResponse: (response: any) => void
+) {
+  try {
+    const result = await ImageService.updateImageNote(payload.id, payload.note);
+    sendResponse({ 
+      success: result, 
+      message: result ? '노트가 업데이트되었습니다.' : '업데이트에 실패했습니다.' 
+    });
+  } catch (error) {
+    console.error('노트 업데이트 실패:', error);
+    sendResponse({ 
+      success: false, 
+      error: '노트 업데이트 중 오류가 발생했습니다.' 
     });
   }
 }

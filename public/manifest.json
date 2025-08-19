@@ -19,7 +19,8 @@
     "*://dashboard-01.braze.eu/*",
     "*://dashboard-02.braze.eu/*",
     "*://api3.myrealtrip.com/*",
-    "*://www.myrealtrip.com/*"
+    "*://www.myrealtrip.com/*",
+    "*://api-alimtalk.cloud.toast.com/*"
   ],
   "background": {
     "service_worker": "background.js"

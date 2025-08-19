@@ -31,6 +31,11 @@ export const BRAZE_SELECTORS = {
     '.sc-dYkizD input.bcl-input',
     'input.StyledInput-sc-1nagddx-0',
     
+    // 태그 입력 필드 (복수 값 입력)
+    'input.bcl-tag-input',
+    '.bcl-tag-input-container input',
+    '.StyledTagInput-sc-15odpfh-0 input',
+    
     // 새 필터 추가 검색창
     '.db-new-filter-input input.bcl-select__input',
     'input#react-select-7-input',

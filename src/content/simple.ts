@@ -944,9 +944,33 @@ function createDropdown(results: any[], inputElement: HTMLInputElement) {
       updateSelection();
     });
     
-    // 클릭
-    item.addEventListener('click', () => {
-      insertValue(result.insertValue);
+    // 클릭 - 마우스다운으로 변경하여 blur보다 먼저 처리
+    item.addEventListener('mousedown', (e) => {
+      e.preventDefault(); // 포커스 이동 방지
+      e.stopPropagation();
+      
+      // 태그 입력 필드인 경우 검색어 먼저 제거
+      if (inputElement.classList.contains('bcl-tag-input')) {
+        // 입력 필드 즉시 비우기
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+          window.HTMLInputElement.prototype,
+          'value'
+        )?.set;
+        
+        if (nativeInputValueSetter) {
+          nativeInputValueSetter.call(inputElement, '');
+        }
+        inputElement.value = '';
+        inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+        
+        // 포커스 유지
+        inputElement.focus();
+      }
+      
+      // 값 삽입
+      setTimeout(() => {
+        insertValue(result.insertValue);
+      }, 10);
     });
     
     itemsContainer.appendChild(item);
@@ -1014,33 +1038,94 @@ function insertValue(value: string) {
   const inputElement = currentInput; // 참조 저장
   removeDropdown();
   
+  // 태그 입력 필드인지 확인
+  const isTagInput = inputElement.classList.contains('bcl-tag-input');
+  
   // 프로그래밍적 변경 플래그 설정
   inputElement.setAttribute('data-programmatic-change', 'true');
   
-  // React의 input 값 변경을 위한 native setter 호출
-  const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-    window.HTMLInputElement.prototype,
-    'value'
-  )?.set;
-  
-  if (nativeInputValueSetter) {
-    nativeInputValueSetter.call(inputElement, value);
+  // 태그 입력 필드인 경우 특별 처리
+  if (isTagInput) {
+    console.log('태그 입력 필드 처리:', value);
+    
+    // 먼저 입력 필드를 완전히 비우기
+    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      'value'
+    )?.set;
+    
+    // 1. 입력 필드 비우기
+    if (nativeInputValueSetter) {
+      nativeInputValueSetter.call(inputElement, '');
+    }
+    inputElement.value = '';
+    
+    // input 이벤트로 비우기 반영
+    inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+    
+    // 2. 약간의 지연 후 새 값 입력
+    setTimeout(() => {
+      if (nativeInputValueSetter) {
+        nativeInputValueSetter.call(inputElement, value);
+      } else {
+        inputElement.value = value;
+      }
+      
+      // input 이벤트 발생
+      inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+      
+      // 3. Enter 키 시뮬레이션으로 태그 생성
+      setTimeout(() => {
+        const enterEvent = new KeyboardEvent('keydown', {
+          key: 'Enter',
+          code: 'Enter',
+          keyCode: 13,
+          which: 13,
+          bubbles: true,
+          cancelable: true
+        });
+        inputElement.dispatchEvent(enterEvent);
+        
+        // 4. 태그 생성 후 입력 필드 비우기
+        setTimeout(() => {
+          if (nativeInputValueSetter) {
+            nativeInputValueSetter.call(inputElement, '');
+          }
+          inputElement.value = '';
+          inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+          inputElement.focus();
+          
+          // 태그 처리
+          processTags();
+        }, 100);
+      }, 50);
+    }, 50);
   } else {
-    inputElement.value = value;
+    // 일반 입력 필드 처리
+    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      'value'
+    )?.set;
+    
+    if (nativeInputValueSetter) {
+      nativeInputValueSetter.call(inputElement, value);
+    } else {
+      inputElement.value = value;
+    }
+    
+    // React가 변경을 감지하도록 이벤트 발생
+    const inputEvent = new Event('input', { bubbles: true, cancelable: true });
+    inputElement.dispatchEvent(inputEvent);
+    
+    const changeEvent = new Event('change', { bubbles: true, cancelable: true });
+    inputElement.dispatchEvent(changeEvent);
+    
+    // 포커스 유지
+    inputElement.focus();
+    
+    // 선택된 값에 대한 name 표시
+    displaySelectedValueName(inputElement, value);
   }
-  
-  // React가 변경을 감지하도록 이벤트 발생
-  const inputEvent = new Event('input', { bubbles: true, cancelable: true });
-  inputElement.dispatchEvent(inputEvent);
-  
-  const changeEvent = new Event('change', { bubbles: true, cancelable: true });
-  inputElement.dispatchEvent(changeEvent);
-  
-  // 포커스 유지
-  inputElement.focus();
-  
-  // 선택된 값에 대한 name 표시
-  displaySelectedValueName(inputElement, value);
   
   // 플래그 제거 및 드롭다운 확실히 제거
   setTimeout(() => {
@@ -1312,6 +1397,32 @@ function showNameDisplay(inputElement: HTMLInputElement, name: string, code: str
   inputElement.parentElement?.insertBefore(nameDiv, inputElement.nextSibling);
 }
 
+// 잘못된 태그인지 확인
+function isInvalidTag(text: string): boolean {
+  // 한글 자음/모음만 있는 경우
+  const consonantVowelOnly = /^[ㄱ-ㅎㅏ-ㅣ]+$/;
+  if (consonantVowelOnly.test(text)) {
+    return true;
+  }
+  
+  // 1-2글자의 불완전한 한글 (받침 없는 글자)
+  const incompleteKorean = /^[가-힣]{1,2}$/;
+  if (incompleteKorean.test(text) && text.length <= 2) {
+    // 실제 도시명이 아닌 경우만 제거
+    const validShortCities = ['서울', '부산', '대구', '인천', '광주', '대전', '울산', '세종', '수원', '성남', '고양', '용인', '창원', '청주'];
+    if (!validShortCities.includes(text)) {
+      return true;
+    }
+  }
+  
+  // 단일 영문자
+  if (/^[a-zA-Z]$/.test(text)) {
+    return true;
+  }
+  
+  return false;
+}
+
 // 태그 컨테이너에서 태그들을 처리
 function processTags() {
   const tagContainers = document.querySelectorAll('.bcl-tag-input-container');
@@ -1331,9 +1442,24 @@ function processTags() {
       if (!tagContent) return;
       
       const code = tagContent.textContent?.trim();
-      if (!code || tag.hasAttribute('data-name-processed')) return;
+      if (!code) return;
+      
+      // 잘못된 태그 감지 및 제거
+      if (isInvalidTag(code)) {
+        console.log('잘못된 태그 감지, 제거 예정:', code);
+        const closeButton = tag.querySelector('.bcl-close-button') as HTMLButtonElement;
+        if (closeButton && !tag.hasAttribute('data-removal-scheduled')) {
+          tag.setAttribute('data-removal-scheduled', 'true');
+          setTimeout(() => {
+            closeButton.click();
+            console.log('잘못된 태그 제거됨:', code);
+          }, 100);
+        }
+        return;
+      }
       
       // 이미 처리된 태그는 스킵
+      if (tag.hasAttribute('data-name-processed')) return;
       tag.setAttribute('data-name-processed', 'true');
       
       // 각 타입별로 한글명 찾기
@@ -1750,6 +1876,25 @@ setTimeout(() => {
   console.log('Braze Autocomplete - 초기 감지 시작');
   detectInputFields();
   processTags();  // 태그 처리 추가
+  
+  // 페이지 로드 시 이미 존재하는 잘못된 태그 제거
+  const existingTags = document.querySelectorAll('.bcl-tag');
+  existingTags.forEach(tag => {
+    const tagContent = tag.querySelector('.bcl-tag-content');
+    if (tagContent) {
+      const text = tagContent.textContent?.trim() || '';
+      if (isInvalidTag(text)) {
+        console.log('페이지 로드 시 잘못된 태그 발견:', text);
+        const closeButton = tag.querySelector('.bcl-close-button') as HTMLButtonElement;
+        if (closeButton) {
+          setTimeout(() => {
+            closeButton.click();
+            console.log('잘못된 태그 제거됨:', text);
+          }, 500);
+        }
+      }
+    }
+  });
   // 데이터가 로드되지 않았으면 다시 요청
   if (attributeMetadata.length === 0) {
     loadAttributeMetadata();
@@ -2018,6 +2163,34 @@ const observer = new MutationObserver((mutations) => {
   
   // 태그 처리
   processTags();
+  
+  // 새로운 태그 감지 및 잘못된 태그 자동 제거
+  mutations.forEach(mutation => {
+    mutation.addedNodes.forEach(node => {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const element = node as HTMLElement;
+        
+        // 새로운 태그가 추가되었는지 확인
+        if (element.classList?.contains('bcl-tag')) {
+          const tagContent = element.querySelector('.bcl-tag-content');
+          if (tagContent) {
+            const text = tagContent.textContent?.trim() || '';
+            if (isInvalidTag(text)) {
+              console.log('새로운 잘못된 태그 감지:', text);
+              const closeButton = element.querySelector('.bcl-close-button') as HTMLButtonElement;
+              if (closeButton && !element.hasAttribute('data-removal-scheduled')) {
+                element.setAttribute('data-removal-scheduled', 'true');
+                setTimeout(() => {
+                  closeButton.click();
+                  console.log('잘못된 태그 자동 제거:', text);
+                }, 50);
+              }
+            }
+          }
+        }
+      }
+    });
+  });
   
   // 메타데이터가 로드된 경우에만 enhance 실행
   if (attributeMetadata.length > 0) {

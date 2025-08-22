@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Braze 자동완성",
-  "version": "1.1.0",
+  "version": "1.1.2",
   "description": "Braze 화면에서 Custom Attributes 자동완성 기능 제공",
   "permissions": [
     "storage",

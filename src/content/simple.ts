@@ -222,6 +222,79 @@ async function getDataForSingleType(type: string, query: string, metadata: any):
 
 // Custom Event 메타데이터 찾기
 function findEventMetadata(input: HTMLInputElement): any {
+  // X Custom Event Property In Y Days 필터 확인
+  const xInYDaysContainer = input.closest('.x_custom_event_property_in_y_days');
+  if (xInYDaysContainer) {
+    console.log('X Custom Event Property In Y Days 필터 발견');
+    
+    // Custom Event 이름 찾기
+    let eventName = '';
+    const eventSelect = xInYDaysContainer.querySelector('.bcl-select__single-value');
+    if (eventSelect) {
+      eventName = eventSelect.textContent?.trim() || '';
+      console.log('X in Y Days - 이벤트명:', eventName);
+    }
+    
+    // Property 이름 찾기
+    let propertyName = '';
+    const propertySelects = xInYDaysContainer.querySelectorAll('.bcl-select__single-value');
+    if (propertySelects.length >= 2) {
+      propertyName = propertySelects[1].textContent?.trim() || '';
+      console.log('X in Y Days - Property명:', propertyName);
+    }
+    
+    // Value 입력 필드인지 확인
+    if (input.classList.contains('filter-input-x-in-y-days-properties-value')) {
+      console.log('X in Y Days - Value 입력 필드 확인');
+      
+      if (eventName) {
+        const metadata = eventMetadata.find(e => e.event === eventName);
+        if (metadata) {
+          console.log('X in Y Days - 이벤트 메타데이터 찾음:', metadata);
+          
+          // property 이름에 따라 자동완성 타입 결정
+          if (metadata.autocompleteTypes && metadata.autocompleteTypes.length > 0) {
+            let selectedType = '';
+            const lowerPropertyName = propertyName.toLowerCase();
+            
+            if (lowerPropertyName.includes('city')) {
+              selectedType = 'CITY';
+            } else if (lowerPropertyName.includes('country')) {
+              selectedType = 'COUNTRY';
+            } else if (lowerPropertyName === 'lv_3_cd' || lowerPropertyName.includes('level_3') || lowerPropertyName.includes('category_3')) {
+              selectedType = 'STANDARD_CATEGORY_LV_3';
+            } else if (lowerPropertyName === 'lv_2_cd' || lowerPropertyName.includes('level_2') || lowerPropertyName.includes('category_2')) {
+              selectedType = 'STANDARD_CATEGORY_LV_2';
+            } else if (lowerPropertyName === 'lv_1_cd' || lowerPropertyName.includes('level_1') || lowerPropertyName.includes('category_1')) {
+              selectedType = 'STANDARD_CATEGORY_LV_1';
+            } else if (lowerPropertyName.includes('airport')) {
+              selectedType = 'AIRPORT';
+            }
+            
+            if (selectedType && metadata.autocompleteTypes.includes(selectedType)) {
+              console.log(`X in Y Days - ${selectedType} 타입 사용`);
+              return {
+                ...metadata,
+                autocompleteType: selectedType,
+                allAutocompleteTypes: metadata.autocompleteTypes
+              };
+            }
+            
+            // 기본값 사용
+            return {
+              ...metadata,
+              autocompleteType: metadata.autocompleteTypes[0],
+              allAutocompleteTypes: metadata.autocompleteTypes
+            };
+          }
+          return metadata;
+        }
+      }
+    }
+    
+    return null;
+  }
+  
   // Campaign Trigger의 Custom Event 컨테이너 확인
   const triggerContainer = input.closest('.db-performed-custom-event-action');
   const booleanLogicContainer = input.closest('.boolean-logic-composer');
@@ -259,7 +332,28 @@ function findEventMetadata(input: HTMLInputElement): any {
         }
       }
       
-      // select를 못 찾았으면 select2 렌더링된 텍스트에서 찾기
+      // select를 못 찾았으면 bcl-select__single-value에서 찾기
+      if (!propertyName && parentWrapper) {
+        const selectContainers = parentWrapper.querySelectorAll('.bcl-select__single-value');
+        for (const container of selectContainers) {
+          const text = container.textContent?.trim() || '';
+          // Basic Property, Nested Property, equals 등의 텍스트는 제외
+          if (text && 
+              text !== 'Basic Property' && 
+              text !== 'Nested Property' &&
+              text !== 'equals' && 
+              text !== 'does not equal' &&
+              !text.includes('matches') &&
+              !text.includes('blank') &&
+              !text.includes('Select')) {
+            propertyName = text;
+            console.log('Property 텍스트 찾음:', propertyName);
+            break;
+          }
+        }
+      }
+      
+      // 그래도 못 찾았으면 select2 렌더링된 텍스트에서 찾기
       if (!propertyName && parentWrapper) {
         const select2Containers = parentWrapper.querySelectorAll('.select2-selection__rendered');
         for (const container of select2Containers) {
@@ -267,12 +361,14 @@ function findEventMetadata(input: HTMLInputElement): any {
           // Basic Property, equals 등의 텍스트는 제외
           if (text && 
               text !== 'Basic Property' && 
+              text !== 'Nested Property' &&
               text !== 'equals' && 
               text !== 'does not equal' &&
               !text.includes('matches') &&
-              !text.includes('blank')) {
+              !text.includes('blank') &&
+              !text.includes('Select')) {
             propertyName = text;
-            console.log('Property 텍스트 찾음:', propertyName);
+            console.log('Property 텍스트 찾음 (select2):', propertyName);
             break;
           }
         }
@@ -284,10 +380,49 @@ function findEventMetadata(input: HTMLInputElement): any {
     if (propertyName) {
       console.log('Property 이름으로 자동완성 타입 결정:', propertyName);
       
-      // 먼저 현재 선택된 이벤트 찾기
-      const eventSelect = document.querySelector('.db-performed-custom-event-action select');
-      const eventName = eventSelect ? (eventSelect as HTMLSelectElement).value : 'add_wishlist';
-      console.log('현재 선택된 이벤트:', eventName);
+      // 현재 선택된 이벤트 찾기
+      let eventName = '';
+      
+      // 방법 1: 상위의 Custom Event 선택 드롭다운에서 직접 찾기
+      const customEventContainer = document.querySelector('.db-performed-custom-event-action');
+      if (customEventContainer) {
+        // event-select 클래스를 가진 요소 찾기
+        const eventSelectEl = customEventContainer.querySelector('.db-performed-custom-event-action--event-select .bcl-select__single-value');
+        if (eventSelectEl) {
+          eventName = eventSelectEl.textContent?.trim() || '';
+          console.log('Custom Event 드롭다운에서 이벤트명 찾음:', eventName);
+        }
+      }
+      
+      // 방법 2: 현재 property filter가 속한 컨텍스트에서 eventName 찾기
+      if (!eventName) {
+        // 입력 필드 주변의 option 태그들 확인
+        const parentContainer = input.closest('.boolean-logic-composer');
+        if (parentContainer) {
+          const options = parentContainer.querySelectorAll('option[value*="eventName"]');
+          console.log('찾은 option 개수:', options.length);
+          
+          for (const option of options) {
+            const value = option.getAttribute('value');
+            console.log('Option value:', value);
+            if (value && value.includes('eventName')) {
+              try {
+                // JSON 문자열 파싱
+                const parsed = JSON.parse(value);
+                if (parsed && parsed.length > 3 && parsed[3] && parsed[3].eventName) {
+                  eventName = parsed[3].eventName;
+                  console.log('Option value에서 이벤트명 추출:', eventName);
+                  break;
+                }
+              } catch (e) {
+                console.log('JSON 파싱 실패:', e);
+              }
+            }
+          }
+        }
+      }
+      
+      console.log('최종 이벤트명:', eventName || '찾지 못함');
       
       // 해당 이벤트의 메타데이터 찾기
       const eventMeta = eventMetadata.find(e => e.event === eventName);
@@ -337,12 +472,26 @@ function findEventMetadata(input: HTMLInputElement): any {
     }
     
     // 기존 방식도 시도 (Custom Event 이름으로 찾기)
-    const selectElement = document.querySelector('select[name="custom_event"]') as HTMLSelectElement;
-    let eventName = selectElement?.value;
+    // 먼저 Custom Event 선택 드롭다운에서 찾기
+    const eventSelectContainer = document.querySelector('.db-performed-custom-event-action--event-select');
+    let eventName = '';
+    
+    if (eventSelectContainer) {
+      const selectedValue = eventSelectContainer.querySelector('.bcl-select__single-value');
+      if (selectedValue) {
+        eventName = selectedValue.textContent?.trim() || '';
+      }
+    }
+    
+    // 못 찾았으면 다른 방식 시도
+    if (!eventName) {
+      const selectElement = document.querySelector('select[name="custom_event"]') as HTMLSelectElement;
+      eventName = selectElement?.value || '';
+    }
     
     if (!eventName) {
-      const selectedEvent = document.querySelector('.db-performed-custom-event-action .select2-selection__rendered');
-      eventName = selectedEvent?.textContent?.trim();
+      const selectedEvent = document.querySelector('.db-performed-custom-event-action .bcl-select__single-value');
+      eventName = selectedEvent?.textContent?.trim() || '';
       
       if (eventName && eventName.includes('(')) {
         eventName = eventName.split('(')[0].trim();
@@ -446,6 +595,16 @@ let currentResults: any[] = []; // 현재 표시된 검색 결과 저장
 
 // 현재 입력 중인 속성의 메타데이터 찾기
 function getCurrentAttributeMetadata(inputElement: HTMLInputElement): any {
+  // X Custom Event Property In Y Days 필터 확인
+  const xInYDaysContainer = inputElement.closest('.x_custom_event_property_in_y_days');
+  if (xInYDaysContainer) {
+    console.log('X Custom Event Property In Y Days 컨테이너 발견');
+    // X in Y Days Events 처리
+    const eventMetadataResult = findEventMetadata(inputElement);
+    console.log('X in Y Days Event metadata 결과:', eventMetadataResult);
+    return eventMetadataResult;
+  }
+  
   // Campaign Trigger의 Custom Event property인지 확인
   const triggerContainer = inputElement.closest('.db-performed-custom-event-action');
   const booleanLogicContainer = inputElement.closest('.boolean-logic-composer');
